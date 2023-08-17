@@ -169,11 +169,39 @@ public class NomAgilityPlugin extends Plugin
 		}
 	}
 
+
+	@Subscribe
+	public void onItemSpawned(ItemSpawned itemSpawned)
+	{
+		if (obstacles.isEmpty())
+		{
+			return;
+		}
+
+		final TileItem item = itemSpawned.getItem();
+		final Tile tile = itemSpawned.getTile();
+
+		if (item.getId() == ItemID.MARK_OF_GRACE)
+		{
+			marksOfGrace.add(tile);
+		}
+	}
+
+	@Subscribe
+	public void onItemDespawned(ItemDespawned itemDespawned)
+	{
+		final TileItem item = itemDespawned.getItem();
+		final Tile tile = itemDespawned.getTile();
+
+		marksOfGrace.remove(tile);
+	}
+
 	@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event)
 	{
 		onTileObject(event.getTile(), null, event.getGameObject());
 	}
+
 
 	@Subscribe
 	public void onGameObjectDespawned(GameObjectDespawned event)
@@ -181,7 +209,44 @@ public class NomAgilityPlugin extends Plugin
 		onTileObject(event.getTile(), event.getGameObject(), null);
 	}
 
+	@Subscribe
+	public void onGroundObjectSpawned(GroundObjectSpawned event)
+	{
+		onTileObject(event.getTile(), null, event.getGroundObject());
+	}
 
+
+	@Subscribe
+	public void onGroundObjectDespawned(GroundObjectDespawned event)
+	{
+		onTileObject(event.getTile(), event.getGroundObject(), null);
+	}
+
+	@Subscribe
+	public void onWallObjectSpawned(WallObjectSpawned event)
+	{
+		onTileObject(event.getTile(), null, event.getWallObject());
+	}
+
+
+	@Subscribe
+	public void onWallObjectDespawned(WallObjectDespawned event)
+	{
+		onTileObject(event.getTile(), event.getWallObject(), null);
+	}
+
+	@Subscribe
+	public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
+	{
+		onTileObject(event.getTile(), null, event.getDecorativeObject());
+	}
+
+
+	@Subscribe
+	public void onDecorativeObjectDespawned(DecorativeObjectDespawned event)
+	{
+		onTileObject(event.getTile(), event.getDecorativeObject(), null);
+	}
 
 	private void onTileObject(Tile tile, TileObject oldObject, TileObject newObject)
 	{
