@@ -249,6 +249,17 @@ public interface MenuEntrySwapperConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "swapUseExamine",
+			name = "Use/Examine Swap",
+			description = "Swap Use with Examine",
+			section = itemSection
+	)
+	default boolean swapUseExamine()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = "swapHerbs",
 		name = "Clean",
 		description = "Swap Clean with Use on Herbs",

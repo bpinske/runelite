@@ -337,6 +337,7 @@ public class MenuEntrySwapperPlugin extends Plugin
 		swap("wear", "kalphite cave", () -> config.swapDesertAmuletMode() == DesertAmuletMode.KALPHITE_CAVE);
 
 		swap("bury", "use", config::swapBones);
+		swap("use", "examine", config::swapUseExamine);
 
 		swap("clean", "use", config::swapHerbs);
 
