@@ -64,6 +64,18 @@ public class NomInventoryTagsOverlay extends WidgetItemOverlay
 		if (SquareOverlay.shouldHide(client,bounds,plugin, config.delay())) return;
 		final String group = plugin.getTag(itemId);
 
+		// Brandon addition
+		// Useful for fishing botting where you want to highlight inventory items
+		ItemContainer itemContainer = client.getItemContainer(InventoryID.INVENTORY);
+
+		if (itemContainer.count() == 28) {
+			highlightUntilEmpty = true;
+		}
+		else if (itemContainer.count() <= 2){
+			highlightUntilEmpty = false;
+		}
+		// Brandon addition
+
 		if (group != null)
 		{
 			if (!shouldPaintGroup(group)) return;
