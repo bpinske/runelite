@@ -28,6 +28,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.inject.Provides;
 import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyEvent;
@@ -36,8 +37,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
+import java.io.*;
+import java.util.*;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
+import javax.swing.*;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
@@ -52,19 +56,23 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.OSType;
+import net.runelite.client.ui.ClientUI;
 
 @PluginDescriptor(
 	name = "Login Screen",
-	description = "Provides various enhancements for login screen"
+	description = "Provides various enhancements for login screen",
+	tags = {"login", "password", "save", "autologin", "pass", "login Screen", "settings"}
 )
 @Slf4j
 public class LoginScreenPlugin extends Plugin implements KeyListener
 {
 	private static final int MAX_USERNAME_LENGTH = 254;
+	private static final String PASSWD_FILE = System.getProperty("user.home") + "/.runelite/.passwd";
 	private static final int MAX_PIN_LENGTH = 6;
 	private static final File CUSTOM_LOGIN_SCREEN_FILE = new File(RuneLite.RUNELITE_DIR, "login.png");
 
@@ -78,16 +86,95 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 	private LoginScreenConfig config;
 
 	@Inject
+	private MouseManager mouseManager;
+
+	@Inject
 	private KeyManager keyManager;
 
+	@Inject
+	private LoginScreenMouseListener inputListener;
+
 	private String usernameCache;
+
+	public void passwordPopUp()
+	{
+		JFrame frame = new JFrame();
+		JPanel panel = new JPanel();
+		JButton button = new JButton("Save");
+		JPasswordField passwordField = new JPasswordField("placeholder");
+		button.addActionListener(e ->
+		{
+			try
+			{
+				setPassword(String.valueOf(passwordField.getPassword()));
+			}
+			catch (IOException ioException)
+			{
+				log.error("ERR: " + ioException);
+			}
+			frame.setVisible(false);
+		});
+		panel.add(passwordField);
+		panel.add(button);
+		frame.setTitle("Save Password");
+		frame.setIconImage(ClientUI.ICON);
+		frame.setAlwaysOnTop (true);
+		frame.setLocationRelativeTo(null);
+		frame.add(panel);
+		frame.pack();
+		frame.setVisible(true);
+	}
 
 	@Override
 	protected void startUp() throws Exception
 	{
 		applyUsername();
-		keyManager.registerKeyListener(this);
+		applyPassword();
+		startEventListeners();
 		clientThread.invoke(this::overrideLoginScreen);
+	}
+
+	private void startEventListeners()
+	{
+		keyManager.registerKeyListener(this);
+		mouseManager.registerMouseListener(inputListener);
+	}
+
+	private void endEventListeners()
+	{
+		keyManager.unregisterKeyListener(this);
+		mouseManager.unregisterMouseListener(inputListener);
+	}
+
+	private void setPassword(String password) throws IOException
+	{
+		BufferedWriter writer = new BufferedWriter(new FileWriter(PASSWD_FILE));
+		writer.write(password);
+		writer.close();
+		applyPassword();
+		log.warn("Saved password to local file. RuneLite Cloud settings will NOT save this file.");
+	}
+
+	private void removePassword()
+	{
+		File file = new File(PASSWD_FILE);
+		file.delete();
+		log.warn("Removed local password file.");
+	}
+
+	private String getPassword()
+	{
+		try
+		{
+			BufferedReader reader = new BufferedReader(new FileReader(PASSWD_FILE));
+			String password = reader.readLine();
+			reader.close();
+			return password;
+		}
+		catch (IOException ioException)
+		{
+			return "";
+		}
 	}
 
 	@Override
@@ -98,7 +185,8 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 			client.getPreferences().setRememberedUsername(usernameCache);
 		}
 
-		keyManager.unregisterKeyListener(this);
+		endEventListeners();
+
 		clientThread.invoke(() ->
 		{
 			restoreLoginScreen();
@@ -113,16 +201,28 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 	}
 
 	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
+	public void onConfigChanged(ConfigChanged event) throws IOException
 	{
 		if (event.getGroup().equals("loginscreen"))
 		{
 			clientThread.invoke(this::overrideLoginScreen);
 		}
+
+		if (event.getKey().equals("storePassword"))
+		{
+			if (event.getNewValue().equals("true"))
+			{
+				passwordPopUp();
+			}
+			else
+			{
+				removePassword();
+			}
+		}
 	}
 
 	@Subscribe
-	public void onGameStateChanged(GameStateChanged event)
+	public void onGameStateChanged(GameStateChanged event) throws IOException
 	{
 		if (!config.syncUsername())
 		{
@@ -131,11 +231,14 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 
 		if (event.getGameState() == GameState.LOGIN_SCREEN)
 		{
+			startEventListeners();
 			applyUsername();
+			applyPassword();
 		}
 		else if (event.getGameState() == GameState.LOGGED_IN)
 		{
 			String username = "";
+			endEventListeners();
 
 			if (client.getPreferences().getRememberedUsername() != null)
 			{
@@ -157,6 +260,7 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 	{
 		// configuation for the account is available now, so update the username
 		applyUsername();
+		applyPassword();
 	}
 
 	private void applyUsername()
@@ -186,6 +290,18 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 		}
 	}
 
+	public void applyPassword()
+	{
+		GameState gameState = client.getGameState();
+		if (gameState == GameState.LOGIN_SCREEN && config.password())
+		{
+			if (!getPassword().equals(""))
+			{
+				client.setPassword(getPassword());
+			}
+		}
+	}
+
 	@Override
 	public boolean isEnabledOnLoginScreen()
 	{
@@ -194,6 +310,11 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 
 	@Override
 	public void keyTyped(KeyEvent e)
+	{
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e)
 	{
 	}
 
@@ -245,12 +366,6 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 				log.warn("failed to fetch clipboard data", ex);
 			}
 		}
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e)
-	{
-
 	}
 
 	private void overrideLoginScreen()
