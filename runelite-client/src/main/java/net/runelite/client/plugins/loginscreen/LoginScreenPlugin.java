@@ -27,21 +27,6 @@ package net.runelite.client.plugins.loginscreen;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.inject.Provides;
-import java.awt.Toolkit;
-import java.awt.*;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.KeyEvent;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Random;
-import java.io.*;
-import java.util.*;
-import javax.imageio.ImageIO;
-import javax.inject.Inject;
-import javax.swing.*;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
@@ -59,9 +44,21 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.ClientUI;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.OSType;
-import net.runelite.client.ui.ClientUI;
+
+import javax.imageio.ImageIO;
+import javax.inject.Inject;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.util.Arrays;
+import java.util.Random;
 
 @PluginDescriptor(
 	name = "Login Screen",
@@ -117,7 +114,7 @@ public class LoginScreenPlugin extends Plugin implements KeyListener
 		panel.add(passwordField);
 		panel.add(button);
 		frame.setTitle("Save Password");
-		frame.setIconImage(ClientUI.ICON);
+		frame.setIconImage(ClientUI.ICON_128);
 		frame.setAlwaysOnTop (true);
 		frame.setLocationRelativeTo(null);
 		frame.add(panel);

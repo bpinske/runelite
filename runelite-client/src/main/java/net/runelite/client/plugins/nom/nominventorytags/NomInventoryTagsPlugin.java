@@ -27,10 +27,6 @@ package net.runelite.client.plugins.nom.nominventorytags;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Provides;
-import java.awt.Color;
-import java.util.Arrays;
-import java.util.List;
-import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
@@ -45,6 +41,11 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ColorUtil;
+
+import javax.inject.Inject;
+import java.awt.*;
+import java.util.Arrays;
+import java.util.List;
 
 @PluginDescriptor(
 		name = "Nom Inventory Tags",

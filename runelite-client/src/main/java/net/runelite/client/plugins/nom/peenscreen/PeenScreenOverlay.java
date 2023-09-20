@@ -1,19 +1,17 @@
 package net.runelite.client.plugins.nom.peenscreen;
 
-import java.awt.Dimension;
-import java.awt.Graphics2D;
-import java.awt.Polygon;
-import java.awt.Rectangle;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.List;
-import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.Model;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayPriority;
+
+import javax.inject.Inject;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PeenScreenOverlay extends Overlay
 {
@@ -73,9 +71,9 @@ public class PeenScreenOverlay extends Overlay
 
 	private List<Vertex> getVertices(Model model)
 	{
-		int[] verticesX = model.getVerticesX();
-		int[] verticesY = model.getVerticesY();
-		int[] verticesZ = model.getVerticesZ();
+		float[] verticesX = model.getVerticesX();
+		float[] verticesY = model.getVerticesY();
+		float[] verticesZ = model.getVerticesZ();
 
 		int count = model.getVerticesCount();
 
