@@ -6,10 +6,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.Notifier;
@@ -30,7 +28,6 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -123,24 +120,6 @@ public class OddsPlugin extends Plugin
       {
          menuManager.get().removePlayerMenuItem(LOOKUP);
       }
-   }
-
-   Pattern pattern = Pattern.compile("^(.* {2})\\(.*");
-   @Subscribe
-   public void onMenuOptionClicked(MenuOptionClicked event)
-   {
-		Player[] players = client.getCachedPlayers();
-		if (players.length <= event.getId()) return;
-		Player player = players[event.getId()];
-		if (player == null)
-		{
-		return;
-		}
-
-		if (Text.removeTags(event.getMenuOption()).equals("Challenge") || event.getMenuOption().equals(LOOKUP))
-		{
-		addPanel(player.getName());
-		}
    }
 
    @Subscribe

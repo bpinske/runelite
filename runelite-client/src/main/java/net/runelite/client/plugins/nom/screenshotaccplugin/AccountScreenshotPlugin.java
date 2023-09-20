@@ -136,7 +136,6 @@ public class AccountScreenshotPlugin extends Plugin
 		final BufferedImage iconImage = ImageUtil.getResourceStreamFromClass(getClass(), "screenshot.png");
 
 		titleBarButton = NavigationButton.builder()
-			.tab(false)
 			.tooltip("Take account screenshot")
 			.icon(iconImage)
 			.onClick(this::manualScreenshot)

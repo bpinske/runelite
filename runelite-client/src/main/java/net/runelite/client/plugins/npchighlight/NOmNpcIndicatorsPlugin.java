@@ -28,36 +28,12 @@ package net.runelite.client.plugins.npchighlight;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
-import java.awt.Color;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.GraphicID;
-import net.runelite.api.GraphicsObject;
-import net.runelite.api.KeyCode;
-import net.runelite.api.MenuAction;
-import static net.runelite.api.MenuAction.MENU_ACTION_DEPRIORITIZE_OFFSET;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.NPC;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.GraphicsObjectCreated;
-import net.runelite.api.events.MenuEntryAdded;
-import net.runelite.api.events.NpcChanged;
-import net.runelite.api.events.NpcDespawned;
-import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -69,6 +45,14 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.Text;
 import net.runelite.client.util.WildcardMatcher;
+
+import javax.inject.Inject;
+import java.awt.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.List;
+
+import static net.runelite.api.MenuAction.MENU_ACTION_DEPRIORITIZE_OFFSET;
 
 @PluginDescriptor(
 	name = "Nom NPC Indicators",
@@ -250,7 +234,11 @@ public class NOmNpcIndicatorsPlugin extends Plugin
 
 		if (NPC_MENU_ACTIONS.contains(menuAction))
 		{
-			NPC npc = client.getCachedNPCs()[event.getIdentifier()];
+			int id = event.getIdentifier();
+
+			WorldView wv = client.getTopLevelWorldView();
+			final NPC npc = wv.npcs().byIndex(id);
+
 
 			Color color = null;
 			if (npc.isDead())
@@ -275,8 +263,9 @@ public class NOmNpcIndicatorsPlugin extends Plugin
 		{
 			// Add tag and tag-all options
 			final int id = event.getIdentifier();
-			final NPC[] cachedNPCs = client.getCachedNPCs();
-			final NPC npc = cachedNPCs[id];
+
+			WorldView wv = client.getTopLevelWorldView();
+			final NPC npc = wv.npcs().byIndex(id);
 
 			if (npc == null || npc.getName() == null)
 			{
@@ -311,8 +300,11 @@ public class NOmNpcIndicatorsPlugin extends Plugin
 	private void tag(MenuEntry entry)
 	{
 		final int id = entry.getIdentifier();
-		final NPC[] cachedNPCs = client.getCachedNPCs();
-		final NPC npc = cachedNPCs[id];
+//		final NPC[] cachedNPCs = client.getCachedNPCs();
+//		final NPC npc = cachedNPCs[id];
+
+		WorldView wv = client.getTopLevelWorldView();
+		final NPC npc = wv.npcs().byIndex(id);
 
 		if (npc == null || npc.getName() == null)
 		{
