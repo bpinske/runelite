@@ -44,7 +44,7 @@ import javax.inject.Inject;
 	name = "Nom World Hopper",
 	description = "Allows you to quickly hop worlds",
 	tags = {"nomscripts","ping", "switcher"},
-	hidden = true
+	hidden = false
 )
 @Slf4j
 public class NomWorldHopperPlugin extends Plugin
