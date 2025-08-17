@@ -24,8 +24,6 @@
  */
 package net.runelite.client.plugins.nom.nomobjectindicators;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import net.runelite.api.*;
 import net.runelite.client.plugins.SquareOverlay;
 import net.runelite.client.ui.overlay.Overlay;
@@ -34,13 +32,13 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.List;
 
 class NomObjectIndicatorsOverlay extends Overlay
 {
 	private final Client client;
 	private final NomObjectIndicatorsConfig config;
 	private final NomObjectIndicatorsPlugin plugin;
-	private boolean highlightUntilEmpty = false;
 
 
 	@Inject
@@ -57,48 +55,16 @@ class NomObjectIndicatorsOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
+		// The plugin has already determined which objects should be visible based on
+		// the active buckets and inventory counts. This overlay just renders them.
+		List<ColorTileObject> objectsToRender = plugin.getObjects();
 
-		if (config.renderOnInventoryFull())
-		{
-			final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-			if (inventory != null)
-			{
-				final int currentCount = inventory.count();
-				if (currentCount >= config.inventoryActivationCount())
-				{
-					this.highlightUntilEmpty = true;
-				}
-				else if (currentCount <= config.inventoryDeactivationCount())
-				{
-					this.highlightUntilEmpty = false;
-				}
-			}
-		}
-		else
-		{
-			// If the feature is disabled, ensure the highlighting state is always off.
-			this.highlightUntilEmpty = false;
-		}
-
-		// Main rendering logic check
-		if (config.renderOnInventoryFull() && !this.highlightUntilEmpty)
+		if (objectsToRender.isEmpty() || config.solidSquare() <= 0)
 		{
 			return null;
 		}
 
-
-		if (config.solidSquare() <= 0)
-		{
-			return null;
-		}
-
-		var objects = plugin.getObjects();
-		if (objects.isEmpty())
-		{
-			return null;
-		}
-
-		for (ColorTileObject obj : objects)
+		for (ColorTileObject obj : objectsToRender)
 		{
 			TileObject object = obj.getTileObject();
 
@@ -107,22 +73,15 @@ class NomObjectIndicatorsOverlay extends Overlay
 				continue;
 			}
 
-			ObjectComposition composition = obj.getComposition();
-			if (composition.getImpostorIds() != null)
+			// The color is retrieved from the object itself, which was set by the plugin
+			// based on the bucket's specific configuration.
+			Color color = obj.getBorderColor();
+			if (color == null)
 			{
-				// This is a multiloc
-				composition = composition.getImpostor();
-				// Only mark the object if the name still matches
-				if (composition == null
-						|| Strings.isNullOrEmpty(composition.getName())
-						|| "null".equals(composition.getName())
-						|| !composition.getName().equals(obj.getName()))
-				{
-					continue;
-				}
+				// Fallback color in case of an issue, though it should not be needed.
+				color = Color.MAGENTA;
 			}
 
-			Color color = MoreObjects.firstNonNull(obj.getBorderColor(), config.markerColor());
 			int size = config.solidSquare();
 			Shape shape = getConvexHull(object);
 

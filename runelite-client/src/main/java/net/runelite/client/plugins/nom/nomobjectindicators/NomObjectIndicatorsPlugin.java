@@ -1,31 +1,5 @@
-/*
- * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
- * Copyright (c) 2018, Adam <Adam@sigterm.info>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package net.runelite.client.plugins.nom.nomobjectindicators;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -34,49 +8,38 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
-import net.runelite.api.Menu;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.components.colorpicker.ColorPickerManager;
-import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.util.ColorUtil;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.swing.*;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static net.runelite.client.plugins.nom.nomobjectindicators.ColorTileObject.*;
-
 @PluginDescriptor(
-	name = "Nom Object Markers",
-	description = "Enable marking of objects using the Shift key",
-	tags = {"nom", "overlay", "objects", "mark", "marker"},
-	enabledByDefault = false
+		name = "Nom Object Markers",
+		description = "Enable marking of objects in different buckets with inventory-based activation",
+		tags = {"nom", "overlay", "objects", "mark", "marker", "bucket"}
 )
 @Slf4j
 public class NomObjectIndicatorsPlugin extends Plugin
 {
 	private static final String CONFIG_GROUP = "nomobjectindicators";
-	private static final String MARK = "Nom Mark object";
-	private static final String UNMARK = "Nom Unmark object";
+	private static final int NUM_BUCKETS = 9;
 
 	@Getter(AccessLevel.PACKAGE)
 	private final List<ColorTileObject> objects = new ArrayList<>();
 	private final Map<Integer, Set<ObjectPoint>> points = new HashMap<>();
+	private final boolean[] bucketActive = new boolean[NUM_BUCKETS];
 
 	@Inject
 	private Client client;
@@ -97,9 +60,6 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	private Gson gson;
 
 	@Inject
-	private ColorPickerManager colorPickerManager;
-
-	@Inject
 	private ClientThread clientThread;
 
 	@Provides
@@ -112,7 +72,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	protected void startUp()
 	{
 		overlayManager.add(overlay);
-		clientThread.invokeLater(this::reloadPoints);
+		clientThread.invokeLater(this::reloadPointsFromConfig);
 	}
 
 	@Override
@@ -121,88 +81,93 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		overlayManager.remove(overlay);
 		points.clear();
 		objects.clear();
-	}
-
-	@Subscribe
-	public void onProfileChanged(ProfileChanged e)
-	{
-		clientThread.invokeLater(this::reloadPoints);
-	}
-
-	@Subscribe
-	public void onWallObjectSpawned(WallObjectSpawned event)
-	{
-		checkObjectPoints(event.getWallObject());
-	}
-
-	@Subscribe
-	public void onWallObjectDespawned(WallObjectDespawned event)
-	{
-		objects.removeIf(o -> o.getTileObject() == event.getWallObject());
-	}
-
-	@Subscribe
-	public void onGameObjectSpawned(GameObjectSpawned event)
-	{
-		checkObjectPoints(event.getGameObject());
-	}
-
-	@Subscribe
-	public void onDecorativeObjectSpawned(DecorativeObjectSpawned event)
-	{
-		checkObjectPoints(event.getDecorativeObject());
-	}
-
-	@Subscribe
-	public void onGameObjectDespawned(GameObjectDespawned event)
-	{
-		objects.removeIf(o -> o.getTileObject() == event.getGameObject());
-	}
-
-	@Subscribe
-	public void onDecorativeObjectDespawned(DecorativeObjectDespawned event)
-	{
-		objects.removeIf(o -> o.getTileObject() == event.getDecorativeObject());
-	}
-
-	@Subscribe
-	public void onGroundObjectSpawned(GroundObjectSpawned event)
-	{
-		checkObjectPoints(event.getGroundObject());
-	}
-
-	@Subscribe
-	public void onGroundObjectDespawned(GroundObjectDespawned event)
-	{
-		objects.removeIf(o -> o.getTileObject() == event.getGroundObject());
-	}
-
-	private void reloadPoints()
-	{
-		points.clear();
-		if (client.getMapRegions() != null)
-		{
-			for (int regionId : client.getMapRegions())
-			{
-				// load points for region
-				final Set<ObjectPoint> regionPoints = loadPoints(regionId);
-				if (regionPoints != null)
-				{
-					points.put(regionId, regionPoints);
-				}
-			}
-		}
+		Arrays.fill(bucketActive, false);
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		GameState gameState = gameStateChanged.getGameState();
-		if (gameState == GameState.LOADING)
+		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
 		{
-			// Reload points with new map regions
-			objects.clear();
-			reloadPoints();
+			clientThread.invokeLater(() ->
+			{
+				reloadPointsFromConfig();
+				rebuildRenderableObjects();
+			});
+		}
+		if (gameStateChanged.getGameState() == GameState.LOADING)
+		{
+			reloadPointsFromConfig();
+			rebuildRenderableObjects();
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick tick)
+	{
+		checkBucketActivation();
+	}
+
+	private void checkBucketActivation()
+	{
+		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+		if (inventory == null)
+		{
+			boolean hadActiveBucket = false;
+			for (boolean b : bucketActive)
+			{
+				if (b)
+				{
+					hadActiveBucket = true;
+					break;
+				}
+			}
+
+			if (hadActiveBucket)
+			{
+				Arrays.fill(bucketActive, false);
+				rebuildRenderableObjects();
+			}
+			return;
+		}
+
+		final int inventoryCount = (int) Arrays.stream(inventory.getItems())
+				.filter(item -> item.getId() != -1 && item.getQuantity() > 0)
+				.count();
+
+		boolean stateChanged = false;
+		for (int i = 0; i < NUM_BUCKETS; i++)
+		{
+			final int bucketId = i + 1;
+			boolean wasActive = bucketActive[i];
+			boolean isActive = false;
+
+			boolean enabled = getBucketEnabled(bucketId);
+			int activationCount = getBucketActivationCount(bucketId);
+			int deactivationCount = getBucketDeactivationCount(bucketId);
+
+			if (enabled)
+			{
+				if (wasActive)
+				{
+					isActive = inventoryCount >= deactivationCount;
+				}
+				else
+				{
+					isActive = inventoryCount >= activationCount;
+				}
+			}
+
+			if (isActive != wasActive)
+			{
+				bucketActive[i] = isActive;
+				stateChanged = true;
+			}
+		}
+
+		if (stateChanged)
+		{
+			rebuildRenderableObjects();
 		}
 	}
 
@@ -214,272 +179,269 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			return;
 		}
 
+		// We need a tile object to determine if this is an object, but we don't need to save it.
+		// The menu entry itself will contain all the necessary information.
 		final TileObject tileObject = findTileObject(client.getPlane(), event.getActionParam0(), event.getActionParam1(), event.getIdentifier());
 		if (tileObject == null)
 		{
 			return;
 		}
 
-		int idx = -1;
-		final var marked = objects.stream().filter(o -> o.getTileObject() == tileObject).findFirst();
-		client.createMenuEntry(idx--)
-			.setOption(marked.isPresent() ? UNMARK : MARK)
-			.setTarget(event.getTarget())
-			.setParam0(event.getActionParam0())
-			.setParam1(event.getActionParam1())
-			.setIdentifier(event.getIdentifier())
-			.setType(MenuAction.RUNELITE)
-			.onClick(this::markObject);
+		// ** BUG FIX IS HERE **
+		// The logic now correctly passes the full MenuEntry (via the event) to the click handlers.
 
-		if (marked.isPresent())
+		ObjectPoint markedPoint = findMarkedObjectPoint(tileObject);
+		if (markedPoint != null)
 		{
-			idx = createTagBorderColorMenu(idx, event.getTarget(), tileObject, marked.get());
-			idx = createTagFillColorMenu(idx, event.getTarget(), tileObject, marked.get());
-			idx = createTagStyleMenu(idx, event.getTarget(), tileObject);
+			client.createMenuEntry(-1)
+					.setOption("Unmark object")
+					.setTarget(event.getTarget())
+					.setParam0(event.getActionParam0())
+					.setParam1(event.getActionParam1())
+					.setIdentifier(event.getIdentifier())
+					.setType(MenuAction.RUNELITE)
+					.onClick(this::unmarkObject); // Pass the MenuEntry
+		}
+
+		for (int i = 1; i <= NUM_BUCKETS; i++)
+		{
+			final int bucketId = i;
+			client.createMenuEntry(-1)
+					.setOption("Mark object (Bucket " + bucketId + ")")
+					.setTarget(event.getTarget())
+					.setParam0(event.getActionParam0())
+					.setParam1(event.getActionParam1())
+					.setIdentifier(event.getIdentifier())
+					.setType(MenuAction.RUNELITE)
+					.onClick(e -> markObject(e, bucketId)); // Pass the MenuEntry and bucketId
 		}
 	}
 
-	private int createTagBorderColorMenu(int idx, String target, TileObject object, ColorTileObject colorTileObject)
+	private void markObject(MenuEntry entry, int bucketId)
 	{
-		List<Color> colors = getUsedColors(ObjectPoint::getBorderColor);
-		// add a few default colors
-		for (Color default_ : new Color[]{Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.MAGENTA})
-		{
-			if (colors.size() < 5 && !colors.contains(default_))
-			{
-				colors.add(default_);
-			}
-		}
+		// Unmark the object first, in case it was already marked in another bucket.
+		unmarkObject(entry);
 
-		MenuEntry parent = client.createMenuEntry(idx--)
-			.setOption("Mark border color")
-			.setTarget(target)
-			.setType(MenuAction.RUNELITE);
-		Menu submenu = parent.createSubMenu();
-
-		for (final Color c : colors)
-		{
-			submenu.createMenuEntry(0)
-				.setOption(ColorUtil.prependColorTag("Set color", c))
-				.setType(MenuAction.RUNELITE)
-				.onClick(e -> updateObjectConfig(object, p -> p.setBorderColor(c)));
-		}
-
-		submenu.createMenuEntry(0)
-			.setOption("Pick color")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> SwingUtilities.invokeLater(() ->
-			{
-				RuneliteColorPicker colorPicker = colorPickerManager.create(client,
-					MoreObjects.firstNonNull(colorTileObject.getBorderColor(), config.markerColor()), "Mark Border Color", false);
-				colorPicker.setOnClose(c ->
-					clientThread.invokeLater(() ->
-						updateObjectConfig(object, p -> p.setBorderColor(c))));
-				colorPicker.setVisible(true);
-			}));
-
-		return idx;
-	}
-
-	private int createTagFillColorMenu(int idx, String target, TileObject object, ColorTileObject colorTileObject)
-	{
-		List<Color> colors = getUsedColors(ObjectPoint::getFillColor);
-		// add a few default colors
-		for (Color default_ : new Color[]{Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.MAGENTA})
-		{
-			default_ = ColorUtil.colorWithAlpha(default_, default_.getAlpha() / 12);
-			if (colors.size() < 5 && !colors.contains(default_))
-			{
-				colors.add(default_);
-			}
-		}
-
-		MenuEntry parent = client.createMenuEntry(idx--)
-			.setOption("Mark fill color")
-			.setTarget(target)
-			.setType(MenuAction.RUNELITE);
-		Menu submenu = parent.createSubMenu();
-
-		for (final Color c : colors)
-		{
-			submenu.createMenuEntry(0)
-				.setOption(ColorUtil.prependColorTag("Set color", c))
-				.setType(MenuAction.RUNELITE)
-				.onClick(e -> updateObjectConfig(object, p -> p.setFillColor(c)));
-		}
-
-		submenu.createMenuEntry(0)
-			.setOption("Pick color")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> SwingUtilities.invokeLater(() ->
-			{
-				// default fill color depends on the highlight type. just use a=50 from hull fill.
-				var previousColor = MoreObjects.firstNonNull(colorTileObject.getFillColor(), new Color(0, 0, 0, 50));
-
-				RuneliteColorPicker colorPicker = colorPickerManager.create(client,
-					previousColor, "Mark Fill Color", false);
-				colorPicker.setOnClose(c ->
-					clientThread.invokeLater(() ->
-						updateObjectConfig(object, p -> p.setFillColor(c))));
-				colorPicker.setVisible(true);
-			}));
-
-		submenu.createMenuEntry(0)
-			.setOption("Reset")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> updateObjectConfig(object, p -> p.setFillColor(null)));
-
-		return idx;
-	}
-
-	private int createTagStyleMenu(int idx, String target, TileObject object)
-	{
-		MenuEntry parent = client.createMenuEntry(idx--)
-			.setOption("Mark style")
-			.setTarget(target)
-			.setType(MenuAction.RUNELITE);
-		Menu submenu = parent.createSubMenu();
-
-		submenu.createMenuEntry(0)
-			.setOption("Hull")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> updateObjectConfig(object, c -> c.setHull(c.getHull() != Boolean.TRUE)));
-
-		submenu.createMenuEntry(0)
-			.setOption("Outline")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> updateObjectConfig(object, c -> c.setOutline(c.getOutline() != Boolean.TRUE)));
-
-		submenu.createMenuEntry(0)
-			.setOption("Clickbox")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> updateObjectConfig(object, c -> c.setClickbox(c.getClickbox() != Boolean.TRUE)));
-
-		submenu.createMenuEntry(0)
-			.setOption("Tile")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> updateObjectConfig(object, c -> c.setTile(c.getTile() != Boolean.TRUE)));
-
-		submenu.createMenuEntry(0)
-			.setOption("Reset")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e ->
-				updateObjectConfig(object, c ->
-				{
-					c.setHull(null);
-					c.setOutline(null);
-					c.setClickbox(null);
-					c.setTile(null);
-				}));
-
-		return idx;
-	}
-
-	private void markObject(MenuEntry entry)
-	{
-		TileObject object = findTileObject(client.getPlane(), entry.getParam0(), entry.getParam1(), entry.getIdentifier());
+		// Re-find the object using the menu entry's context to ensure we have the right reference.
+		final TileObject object = findTileObject(client.getPlane(), entry.getParam0(), entry.getParam1(), entry.getIdentifier());
 		if (object == null)
 		{
 			return;
 		}
 
-		// object.getId() is always the base object id, getObjectComposition transforms it to
-		// the correct object we see
-		ObjectComposition objectDefinition = getObjectComposition(object.getId());
-		String name = objectDefinition.getName();
-		// Name is probably never "null" - however prevent adding it if it is, as it will
-		// become ambiguous as objects with no name are assigned name "null"
+		// This is the crucial part: use the entry's identifier to get the transformed composition.
+		ObjectComposition objectComposition = getObjectComposition(entry.getIdentifier());
+		if (objectComposition == null)
+		{
+			return;
+		}
+
+		String name = objectComposition.getName();
 		if (Strings.isNullOrEmpty(name) || name.equals("null"))
 		{
 			return;
 		}
 
-		markObject(objectDefinition, name, object);
+		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
+		final int regionId = worldPoint.getRegionID();
+
+		// Note: we use object.getId() for the point to store the *base* ID, which is more stable.
+		final ObjectPoint point = new ObjectPoint(object.getId(), name, regionId, worldPoint.getRegionX(), worldPoint.getRegionY(), worldPoint.getPlane());
+		point.setBucket(bucketId);
+		point.setBorderColor(getBucketColor(bucketId));
+
+		Set<ObjectPoint> objectPoints = points.computeIfAbsent(regionId, k -> new HashSet<>());
+		objectPoints.add(point);
+		savePoints(regionId, objectPoints);
+
+		if (bucketId > 0 && bucketId <= NUM_BUCKETS && bucketActive[bucketId - 1])
+		{
+			objects.add(new ColorTileObject(object, objectComposition, name, point.getBorderColor(), point.getFillColor(), (byte) 0));
+		}
 	}
 
-	private void updateObjectConfig(TileObject object, Consumer<ObjectPoint> c)
+	private void unmarkObject(MenuEntry entry)
 	{
+		final TileObject object = findTileObject(client.getPlane(), entry.getParam0(), entry.getParam1(), entry.getIdentifier());
+		if (object == null)
+		{
+			return;
+		}
+
 		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
 		final int regionId = worldPoint.getRegionID();
 		Set<ObjectPoint> objectPoints = points.get(regionId);
-		if (objectPoints.isEmpty())
-		{
-			return;
-		}
-
-		final ObjectComposition objectComposition = getObjectComposition(object.getId());
-		ObjectPoint objectPoint = objectPoints.stream().filter(findObjectPredicate(objectComposition, object, worldPoint)).findFirst().orElse(null);
-		if (objectPoint == null)
-		{
-			return;
-		}
-
-		c.accept(objectPoint);
-
-		savePoints(regionId, objectPoints);
-
-		// rebuild the ColorTileObject from the new config
-		if (objects.removeIf(o -> o.getTileObject() == object))
-		{
-			checkObjectPoints(object);
-		}
-	}
-
-	private void checkObjectPoints(TileObject object)
-	{
-		if (object.getPlane() < 0)
-		{
-			// object is under a bridge, which can't be marked anyway
-			return;
-		}
-
-		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation(), object.getPlane());
-		final Set<ObjectPoint> objectPoints = points.get(worldPoint.getRegionID());
-
 		if (objectPoints == null)
 		{
 			return;
 		}
 
-		ObjectComposition objectComposition = client.getObjectDefinition(object.getId());
-		if (objectComposition.getImpostorIds() == null)
+		// Use the transformed ID to get the correct composition for matching.
+		final ObjectComposition objectComposition = getObjectComposition(entry.getIdentifier());
+		if (objectComposition != null && objectPoints.removeIf(findObjectPredicate(objectComposition, object, worldPoint)))
 		{
-			// Multiloc names are instead checked in the overlay
-			String name = objectComposition.getName();
-			if (Strings.isNullOrEmpty(name) || name.equals("null"))
-			{
-				// was marked, but name has changed
-				return;
-			}
+			savePoints(regionId, objectPoints);
+			objects.removeIf(o -> o.getTileObject() == object);
+		}
+	}
+
+	private void rebuildRenderableObjects()
+	{
+		objects.clear();
+		if (client.getGameState() != GameState.LOGGED_IN && client.getGameState() != GameState.LOADING)
+		{
+			return;
 		}
 
-		for (ObjectPoint objectPoint : objectPoints)
+		Scene scene = client.getScene();
+		if (scene == null)
 		{
-			if (worldPoint.getRegionX() == objectPoint.getRegionX()
-					&& worldPoint.getRegionY() == objectPoint.getRegionY()
-					&& worldPoint.getPlane() == objectPoint.getZ()
-					&& objectPoint.getId() == object.getId())
+			return;
+		}
+
+		Tile[][][] tiles = scene.getTiles();
+		for (int z = 0; z < 4; z++)
+		{
+			for (int x = 0; x < 104; x++)
 			{
-				log.debug("Marking object {} due to matching {}", object, objectPoint);
-				var flags =
-					(objectPoint.getHull() == Boolean.TRUE ? HF_HULL : 0) |
-					(objectPoint.getOutline() == Boolean.TRUE ? HF_OUTLINE : 0) |
-					(objectPoint.getClickbox() == Boolean.TRUE ? HF_CLICKBOX : 0) |
-					(objectPoint.getTile() == Boolean.TRUE ? HF_TILE : 0);
-				objects.add(new ColorTileObject(object,
-					objectComposition,
-					objectPoint.getName(),
-					objectPoint.getBorderColor(),
-					objectPoint.getFillColor(),
-					(byte) flags));
-				break;
+				for (int y = 0; y < 104; y++)
+				{
+					Tile tile = tiles[z][x][y];
+					if (tile == null)
+					{
+						continue;
+					}
+
+					for (GameObject gameObject : tile.getGameObjects())
+					{
+						checkObjectPoints(gameObject);
+					}
+					checkObjectPoints(tile.getWallObject());
+					checkObjectPoints(tile.getDecorativeObject());
+					checkObjectPoints(tile.getGroundObject());
+				}
 			}
 		}
 	}
 
+	private void checkObjectPoints(TileObject object)
+	{
+		if (object == null)
+		{
+			return;
+		}
+
+		ObjectPoint point = findMarkedObjectPoint(object);
+		if (point != null && point.getBucket() > 0 && point.getBucket() <= NUM_BUCKETS && bucketActive[point.getBucket() - 1])
+		{
+			ObjectComposition objectComposition = getObjectComposition(object.getId());
+			if (objectComposition != null)
+			{
+				objects.add(new ColorTileObject(object, objectComposition, point.getName(), point.getBorderColor(), point.getFillColor(), (byte) 0));
+			}
+		}
+	}
+
+	@Nullable
+	private ObjectPoint findMarkedObjectPoint(TileObject object)
+	{
+		if (object == null)
+		{
+			return null;
+		}
+
+		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
+		final Set<ObjectPoint> regionPoints = points.get(worldPoint.getRegionID());
+		if (regionPoints == null || regionPoints.isEmpty())
+		{
+			return null;
+		}
+
+		// We must check against the transformed composition.
+		final ObjectComposition objectComposition = getObjectComposition(object.getId());
+		if (objectComposition == null)
+		{
+			return null;
+		}
+
+		return regionPoints.stream()
+				.filter(findObjectPredicate(objectComposition, object, worldPoint))
+				.findFirst()
+				.orElse(null);
+	}
+
+	private Predicate<ObjectPoint> findObjectPredicate(ObjectComposition objectComposition, TileObject object, WorldPoint worldPoint)
+	{
+		// Match by base ID OR by transformed name at the same location.
+		return op -> (op.getId() == object.getId() || op.getName().equals(objectComposition.getName()))
+				&& op.getRegionX() == worldPoint.getRegionX()
+				&& op.getRegionY() == worldPoint.getRegionY()
+				&& op.getZ() == worldPoint.getPlane();
+	}
+
+	@Subscribe
+	public void onGameObjectSpawned(GameObjectSpawned event) { checkObjectPoints(event.getGameObject()); }
+	@Subscribe
+	public void onGameObjectDespawned(GameObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getGameObject()); }
+	@Subscribe
+	public void onWallObjectSpawned(WallObjectSpawned event) { checkObjectPoints(event.getWallObject()); }
+	@Subscribe
+	public void onWallObjectDespawned(WallObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getWallObject()); }
+	@Subscribe
+	public void onDecorativeObjectSpawned(DecorativeObjectSpawned event) { checkObjectPoints(event.getDecorativeObject()); }
+	@Subscribe
+	public void onDecorativeObjectDespawned(DecorativeObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getDecorativeObject()); }
+	@Subscribe
+	public void onGroundObjectSpawned(GroundObjectSpawned event) { checkObjectPoints(event.getGroundObject()); }
+	@Subscribe
+	public void onGroundObjectDespawned(GroundObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getGroundObject()); }
+
+	private void savePoints(final int regionId, final Set<ObjectPoint> points)
+	{
+		if (points.isEmpty())
+		{
+			configManager.unsetConfiguration(CONFIG_GROUP, "region_" + regionId);
+		}
+		else
+		{
+			final String json = gson.toJson(points);
+			configManager.setConfiguration(CONFIG_GROUP, "region_" + regionId, json);
+		}
+	}
+
+	private void reloadPointsFromConfig()
+	{
+		points.clear();
+		if (client.getMapRegions() == null)
+		{
+			return;
+		}
+		for (int regionId : client.getMapRegions())
+		{
+			final String json = configManager.getConfiguration(CONFIG_GROUP, "region_" + regionId);
+			if (!Strings.isNullOrEmpty(json))
+			{
+				try
+				{
+					Set<ObjectPoint> regionPoints = gson.fromJson(json, new TypeToken<Set<ObjectPoint>>() {}.getType());
+					points.put(regionId, regionPoints.stream().filter(p -> !p.getName().equals("null")).collect(Collectors.toSet()));
+				}
+				catch (Exception e)
+				{
+					log.warn("Could not parse object points for region {}: {}", regionId, e.getMessage());
+				}
+			}
+		}
+	}
+
+	@Nullable
 	private TileObject findTileObject(int z, int x, int y, int id)
 	{
 		Scene scene = client.getScene();
+		if (scene == null)
+		{
+			return null;
+		}
 		Tile[][][] tiles = scene.getTiles();
 		final Tile tile = tiles[z][x][y];
 		if (tile == null)
@@ -487,160 +449,21 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			return null;
 		}
 
-		final GameObject[] tileGameObjects = tile.getGameObjects();
-		final DecorativeObject tileDecorativeObject = tile.getDecorativeObject();
-		final WallObject tileWallObject = tile.getWallObject();
-		final GroundObject groundObject = tile.getGroundObject();
-
-		if (objectIdEquals(tileWallObject, id))
+		for (GameObject obj : tile.getGameObjects())
 		{
-			return tileWallObject;
+			if (obj != null && obj.getId() == id) return obj;
 		}
+		if (tile.getWallObject() != null && tile.getWallObject().getId() == id) return tile.getWallObject();
+		if (tile.getDecorativeObject() != null && tile.getDecorativeObject().getId() == id) return tile.getDecorativeObject();
+		if (tile.getGroundObject() != null && tile.getGroundObject().getId() == id) return tile.getGroundObject();
 
-		if (objectIdEquals(tileDecorativeObject, id))
+		// Fallback for transformed objects
+		for (GameObject obj : tile.getGameObjects())
 		{
-			return tileDecorativeObject;
-		}
-
-		if (objectIdEquals(groundObject, id))
-		{
-			return groundObject;
-		}
-
-		for (GameObject object : tileGameObjects)
-		{
-			if (objectIdEquals(object, id))
-			{
-				return object;
-			}
+			if (obj != null && getObjectComposition(obj.getId()) != null && getObjectComposition(obj.getId()).getId() == id) return obj;
 		}
 
 		return null;
-	}
-
-	private boolean objectIdEquals(TileObject tileObject, int id)
-	{
-		if (tileObject == null)
-		{
-			return false;
-		}
-
-		if (tileObject.getId() == id)
-		{
-			return true;
-		}
-
-		// Menu action EXAMINE_OBJECT sends the transformed object id, not the base id, unlike
-		// all of the GAME_OBJECT_OPTION actions, so check the id against the impostor ids
-		final ObjectComposition comp = client.getObjectDefinition(tileObject.getId());
-
-		if (comp.getImpostorIds() != null)
-		{
-			for (int impostorId : comp.getImpostorIds())
-			{
-				if (impostorId == id)
-				{
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	/** mark or unmark an object
-	 *
-	 * @param objectComposition transformed composition of object based on vars
-	 * @param name name of objectComposition
-	 * @param object tile object, for multilocs object.getId() is the base id
-	 */
-	private void markObject(ObjectComposition objectComposition, String name, final TileObject object)
-	{
-		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
-		final int regionId = worldPoint.getRegionID();
-		final Color borderColor = config.markerColor();
-		final Color fillColor = config.fillColor();
-		final ObjectPoint point = new ObjectPoint(
-			object.getId(),
-			name,
-			regionId,
-			worldPoint.getRegionX(),
-			worldPoint.getRegionY(),
-			worldPoint.getPlane(),
-			borderColor,
-			fillColor,
-			// use the default config values
-			null, null, null, null);
-
-		Set<ObjectPoint> objectPoints = points.computeIfAbsent(regionId, k -> new HashSet<>());
-
-		if (objects.removeIf(o -> o.getTileObject() == object))
-		{
-			if (!objectPoints.removeIf(findObjectPredicate(objectComposition, object, worldPoint)))
-			{
-				log.warn("unable to find object point for unmarked object {}", object.getId());
-			}
-
-			log.debug("Unmarking object: {}", point);
-		}
-		else
-		{
-			objectPoints.add(point);
-			objects.add(new ColorTileObject(object,
-				client.getObjectDefinition(object.getId()),
-				name,
-				borderColor,
-				fillColor,
-				(byte) 0));
-			log.debug("Marking object: {}", point);
-		}
-
-		savePoints(regionId, objectPoints);
-	}
-
-	private static Predicate<ObjectPoint> findObjectPredicate(ObjectComposition objectComposition, TileObject object, WorldPoint worldPoint)
-	{
-		// Find the ObjectPoint for the given composition, object, and world point. There are two cases:
-		// 1) object is a multiloc, the name may have changed since marking - match from base id
-		// 2) not a multiloc, but an object has spawned with an identical name and a different
-		//    id as what was originally marked
-		return op -> ((op.getId() == -1 || op.getId() == object.getId()) || op.getName().equals(objectComposition.getName()))
-			&& op.getRegionX() == worldPoint.getRegionX()
-			&& op.getRegionY() == worldPoint.getRegionY()
-			&& op.getZ() == worldPoint.getPlane();
-	}
-
-	private void savePoints(final int id, final Set<ObjectPoint> points)
-	{
-		if (points.isEmpty())
-		{
-			configManager.unsetConfiguration(CONFIG_GROUP, "region_" + id);
-		}
-		else
-		{
-			final String json = gson.toJson(points);
-			configManager.setConfiguration(CONFIG_GROUP, "region_" + id, json);
-		}
-	}
-
-	private Set<ObjectPoint> loadPoints(final int id)
-	{
-		final String json = configManager.getConfiguration(CONFIG_GROUP, "region_" + id);
-
-		if (Strings.isNullOrEmpty(json))
-		{
-			return null;
-		}
-
-		Set<ObjectPoint> points = gson.fromJson(json, new TypeToken<Set<ObjectPoint>>()
-		{
-		}.getType());
-		// Prior to multiloc support the plugin would mark objects named "null", which breaks
-		// in most cases due to the specific object being identified being ambiguous, so remove
-		// them
-		return points.stream()
-			.filter(point -> !point.getName().equals("null"))
-			.collect(Collectors.toSet());
 	}
 
 	@Nullable
@@ -650,28 +473,71 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		return objectComposition.getImpostorIds() == null ? objectComposition : objectComposition.getImpostor();
 	}
 
-	private List<Color> getUsedColors(Function<ObjectPoint, Color> getColor)
+	private boolean getBucketEnabled(int bucketId)
 	{
-		List<Color> colors = new ArrayList<>();
-		for (int region : client.getMapRegions())
+		switch (bucketId)
 		{
-			var points = this.points.get(region);
-			if (points != null)
-			{
-				for (var p : points)
-				{
-					Color c = getColor.apply(p);
-					if (c != null & !colors.contains(c))
-					{
-						colors.add(c);
-						if (colors.size() >= 5)
-						{
-							return colors;
-						}
-					}
-				}
-			}
+			case 1: return config.bucket1Enabled();
+			case 2: return config.bucket2Enabled();
+			case 3: return config.bucket3Enabled();
+			case 4: return config.bucket4Enabled();
+			case 5: return config.bucket5Enabled();
+			case 6: return config.bucket6Enabled();
+			case 7: return config.bucket7Enabled();
+			case 8: return config.bucket8Enabled();
+			case 9: return config.bucket9Enabled();
+			default: return false;
 		}
-		return colors;
+	}
+
+	private Color getBucketColor(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1Color();
+			case 2: return config.bucket2Color();
+			case 3: return config.bucket3Color();
+			case 4: return config.bucket4Color();
+			case 5: return config.bucket5Color();
+			case 6: return config.bucket6Color();
+			case 7: return config.bucket7Color();
+			case 8: return config.bucket8Color();
+			case 9: return config.bucket9Color();
+			default: return Color.WHITE;
+		}
+	}
+
+	private int getBucketActivationCount(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1ActivationCount();
+			case 2: return config.bucket2ActivationCount();
+			case 3: return config.bucket3ActivationCount();
+			case 4: return config.bucket4ActivationCount();
+			case 5: return config.bucket5ActivationCount();
+			case 6: return config.bucket6ActivationCount();
+			case 7: return config.bucket7ActivationCount();
+			case 8: return config.bucket8ActivationCount();
+			case 9: return config.bucket9ActivationCount();
+			default: return Integer.MAX_VALUE;
+		}
+	}
+
+	private int getBucketDeactivationCount(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1DeactivationCount();
+			case 2: return config.bucket2DeactivationCount();
+			case 3: return config.bucket3DeactivationCount();
+			case 4: return config.bucket4DeactivationCount();
+			case 5: return config.bucket5DeactivationCount();
+			case 6: return config.bucket6DeactivationCount();
+			case 7: return config.bucket7DeactivationCount();
+			case 8: return config.bucket8DeactivationCount();
+			case 9: return config.bucket9DeactivationCount();
+			default: return Integer.MAX_VALUE;
+		}
 	}
 }
