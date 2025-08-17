@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Woox <https://github.com/wooxsolo>
+ * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,58 +22,39 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.npchighlight;
 
-import java.util.ArrayList;
-import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
-import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
-import net.runelite.api.coords.WorldPoint;
+package net.runelite.client.plugins.nom.nomobjectindicators;
 
-class NomMemorizedNpc
+import com.google.gson.annotations.SerializedName;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.annotation.Nullable;
+import java.awt.*;
+
+/**
+ * config structure for marked objects
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class ObjectPoint
 {
-	@Getter
-	private int npcIndex;
-
-	@Getter
-	private String npcName;
-
-	@Getter
-	private int npcSize;
-
-	/**
-	 * The time the npc died at, in game ticks, relative to the tick counter
-	 */
-	@Getter
-	@Setter
-	private int diedOnTick;
-
-	/**
-	 * The time it takes for the npc to respawn, in game ticks
-	 */
-	@Getter
-	@Setter
-	private int respawnTime;
-
-	@Getter
-	@Setter
-	private List<WorldPoint> possibleRespawnLocations;
-
-	NomMemorizedNpc(NPC npc)
-	{
-		this.npcName = npc.getName();
-		this.npcIndex = npc.getIndex();
-		this.possibleRespawnLocations = new ArrayList<>();
-		this.respawnTime = -1;
-		this.diedOnTick = -1;
-
-		final NPCComposition composition = npc.getTransformedComposition();
-
-		if (composition != null)
-		{
-			this.npcSize = composition.getSize();
-		}
-	}
+	private int id = -1;
+	private String name;
+	private int regionId;
+	private int regionX;
+	private int regionY;
+	private int z;
+	@Nullable
+	@SerializedName("color")
+	private Color borderColor;
+	@Nullable
+	private Color fillColor;
+	// highlight options
+	private Boolean hull;
+	private Boolean outline;
+	private Boolean clickbox;
+	private Boolean tile;
 }

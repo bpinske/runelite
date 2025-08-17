@@ -16,13 +16,29 @@ import net.runelite.http.api.worlds.WorldResult;
 import net.runelite.http.api.worlds.WorldType;
 
 import javax.inject.Inject;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 @Slf4j
 public class AutoHopPKersUtil {
     private static final int MAX_PLAYER_COUNT = 1950;
+
+    private static final Set<WorldType> SKIPPABLE_WORLD_TYPES = EnumSet.of(
+            WorldType.PVP,
+            WorldType.BOUNTY,
+            WorldType.PVP_ARENA,
+            WorldType.SKILL_TOTAL,
+            WorldType.QUEST_SPEEDRUNNING,
+            WorldType.HIGH_RISK,
+            WorldType.LAST_MAN_STANDING,
+            WorldType.BETA_WORLD,
+            WorldType.LEGACY_ONLY,
+            WorldType.EOC_ONLY,
+            WorldType.NOSAVE_MODE,
+            WorldType.TOURNAMENT,
+            WorldType.FRESH_START_WORLD,
+            WorldType.DEADMAN,
+            WorldType.SEASONAL
+    );
 
     @Inject
     private WorldService worldService;
@@ -61,7 +77,7 @@ public class AutoHopPKersUtil {
         do
         {
             // Large hop to dodge pkers going one world at a time.
-            worldIdx+=10;
+            worldIdx+=1;
             if (worldIdx >= worlds.size())
             {
                 worldIdx = 0;
@@ -89,6 +105,11 @@ public class AutoHopPKersUtil {
                 {
                     log.warn("Failed to parse total level requirement for target world", ex);
                 }
+            }
+
+            if (!Collections.disjoint(types, SKIPPABLE_WORLD_TYPES))
+            {
+                continue;
             }
 
             // Avoid switching to near-max population worlds, as it will refuse to allow the hop if the world is full
