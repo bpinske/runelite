@@ -9,7 +9,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.*;
+import net.runelite.api.events.ClientTick;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -87,89 +89,61 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		if (gameStateChanged.getGameState() == GameState.LOGGED_IN || gameStateChanged.getGameState() == GameState.LOADING)
 		{
-			clientThread.invokeLater(() ->
-			{
-				reloadPointsFromConfig();
-				rebuildRenderableObjects();
-			});
-		}
-		if (gameStateChanged.getGameState() == GameState.LOADING)
-		{
-			reloadPointsFromConfig();
-			rebuildRenderableObjects();
+			clientThread.invokeLater(this::reloadPointsFromConfig);
 		}
 	}
 
 	@Subscribe
-	public void onGameTick(GameTick tick)
+	public void onClientTick(ClientTick clientTick)
 	{
-		checkBucketActivation();
+		checkBucketActivationAndUpdateRenderList();
 	}
 
-	private void checkBucketActivation()
+	/**
+	 * Checks if the player is busy (interacting or animating).
+	 */
+	private boolean isPlayerBusy()
 	{
-		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-		if (inventory == null)
+		Player localPlayer = client.getLocalPlayer();
+		if (localPlayer == null)
 		{
-			boolean hadActiveBucket = false;
-			for (boolean b : bucketActive)
-			{
-				if (b)
-				{
-					hadActiveBucket = true;
-					break;
-				}
-			}
-
-			if (hadActiveBucket)
-			{
-				Arrays.fill(bucketActive, false);
-				rebuildRenderableObjects();
-			}
-			return;
+			return false;
 		}
+		return localPlayer.getAnimation() != -1 || localPlayer.getInteracting() != null;
+	}
 
-		final int inventoryCount = (int) Arrays.stream(inventory.getItems())
+	/**
+	 * This is the main loop that runs every frame. It determines which buckets should be active
+	 * and then immediately rebuilds the list of objects to be rendered.
+	 */
+	private void checkBucketActivationAndUpdateRenderList()
+	{
+		final boolean isBusy = isPlayerBusy();
+		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+		final int inventoryCount = (inventory == null) ? 0 : (int) Arrays.stream(inventory.getItems())
 				.filter(item -> item.getId() != -1 && item.getQuantity() > 0)
 				.count();
 
-		boolean stateChanged = false;
+		// Step 1: Update the active state for all buckets based on the new logic.
 		for (int i = 0; i < NUM_BUCKETS; i++)
 		{
 			final int bucketId = i + 1;
-			boolean wasActive = bucketActive[i];
-			boolean isActive = false;
+			int minCount = getBucketActivationCount(bucketId);
+			int maxCount = getBucketDeactivationCount(bucketId);
 
-			boolean enabled = getBucketEnabled(bucketId);
-			int activationCount = getBucketActivationCount(bucketId);
-			int deactivationCount = getBucketDeactivationCount(bucketId);
+			// The core "range" logic: active if count is between min (inclusive) and max (exclusive).
+			boolean inventoryConditionMet = (inventoryCount >= minCount && inventoryCount < maxCount);
 
-			if (enabled)
-			{
-				if (wasActive)
-				{
-					isActive = inventoryCount >= deactivationCount;
-				}
-				else
-				{
-					isActive = inventoryCount >= activationCount;
-				}
-			}
-
-			if (isActive != wasActive)
-			{
-				bucketActive[i] = isActive;
-				stateChanged = true;
-			}
+			boolean busyConditionBlocks = isBusy && getBucketDisableWhileBusy(bucketId);
+			bucketActive[i] = getBucketEnabled(bucketId) && inventoryConditionMet && !busyConditionBlocks;
 		}
 
-		if (stateChanged)
-		{
-			rebuildRenderableObjects();
-		}
+		// Step 2: Rebuild the render list from scratch based on the now-current bucket states.
+		rebuildRenderableObjects();
 	}
+
 
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded event)
@@ -179,16 +153,11 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			return;
 		}
 
-		// We need a tile object to determine if this is an object, but we don't need to save it.
-		// The menu entry itself will contain all the necessary information.
 		final TileObject tileObject = findTileObject(client.getPlane(), event.getActionParam0(), event.getActionParam1(), event.getIdentifier());
 		if (tileObject == null)
 		{
 			return;
 		}
-
-		// ** BUG FIX IS HERE **
-		// The logic now correctly passes the full MenuEntry (via the event) to the click handlers.
 
 		ObjectPoint markedPoint = findMarkedObjectPoint(tileObject);
 		if (markedPoint != null)
@@ -200,7 +169,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 					.setParam1(event.getActionParam1())
 					.setIdentifier(event.getIdentifier())
 					.setType(MenuAction.RUNELITE)
-					.onClick(this::unmarkObject); // Pass the MenuEntry
+					.onClick(this::unmarkObject);
 		}
 
 		for (int i = 1; i <= NUM_BUCKETS; i++)
@@ -213,23 +182,20 @@ public class NomObjectIndicatorsPlugin extends Plugin
 					.setParam1(event.getActionParam1())
 					.setIdentifier(event.getIdentifier())
 					.setType(MenuAction.RUNELITE)
-					.onClick(e -> markObject(e, bucketId)); // Pass the MenuEntry and bucketId
+					.onClick(e -> markObject(e, bucketId));
 		}
 	}
 
 	private void markObject(MenuEntry entry, int bucketId)
 	{
-		// Unmark the object first, in case it was already marked in another bucket.
 		unmarkObject(entry);
 
-		// Re-find the object using the menu entry's context to ensure we have the right reference.
 		final TileObject object = findTileObject(client.getPlane(), entry.getParam0(), entry.getParam1(), entry.getIdentifier());
 		if (object == null)
 		{
 			return;
 		}
 
-		// This is the crucial part: use the entry's identifier to get the transformed composition.
 		ObjectComposition objectComposition = getObjectComposition(entry.getIdentifier());
 		if (objectComposition == null)
 		{
@@ -245,7 +211,6 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
 		final int regionId = worldPoint.getRegionID();
 
-		// Note: we use object.getId() for the point to store the *base* ID, which is more stable.
 		final ObjectPoint point = new ObjectPoint(object.getId(), name, regionId, worldPoint.getRegionX(), worldPoint.getRegionY(), worldPoint.getPlane());
 		point.setBucket(bucketId);
 		point.setBorderColor(getBucketColor(bucketId));
@@ -253,11 +218,6 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		Set<ObjectPoint> objectPoints = points.computeIfAbsent(regionId, k -> new HashSet<>());
 		objectPoints.add(point);
 		savePoints(regionId, objectPoints);
-
-		if (bucketId > 0 && bucketId <= NUM_BUCKETS && bucketActive[bucketId - 1])
-		{
-			objects.add(new ColorTileObject(object, objectComposition, name, point.getBorderColor(), point.getFillColor(), (byte) 0));
-		}
 	}
 
 	private void unmarkObject(MenuEntry entry)
@@ -276,12 +236,10 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			return;
 		}
 
-		// Use the transformed ID to get the correct composition for matching.
 		final ObjectComposition objectComposition = getObjectComposition(entry.getIdentifier());
 		if (objectComposition != null && objectPoints.removeIf(findObjectPredicate(objectComposition, object, worldPoint)))
 		{
 			savePoints(regionId, objectPoints);
-			objects.removeIf(o -> o.getTileObject() == object);
 		}
 	}
 
@@ -357,7 +315,6 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			return null;
 		}
 
-		// We must check against the transformed composition.
 		final ObjectComposition objectComposition = getObjectComposition(object.getId());
 		if (objectComposition == null)
 		{
@@ -372,29 +329,11 @@ public class NomObjectIndicatorsPlugin extends Plugin
 
 	private Predicate<ObjectPoint> findObjectPredicate(ObjectComposition objectComposition, TileObject object, WorldPoint worldPoint)
 	{
-		// Match by base ID OR by transformed name at the same location.
 		return op -> (op.getId() == object.getId() || op.getName().equals(objectComposition.getName()))
 				&& op.getRegionX() == worldPoint.getRegionX()
 				&& op.getRegionY() == worldPoint.getRegionY()
 				&& op.getZ() == worldPoint.getPlane();
 	}
-
-	@Subscribe
-	public void onGameObjectSpawned(GameObjectSpawned event) { checkObjectPoints(event.getGameObject()); }
-	@Subscribe
-	public void onGameObjectDespawned(GameObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getGameObject()); }
-	@Subscribe
-	public void onWallObjectSpawned(WallObjectSpawned event) { checkObjectPoints(event.getWallObject()); }
-	@Subscribe
-	public void onWallObjectDespawned(WallObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getWallObject()); }
-	@Subscribe
-	public void onDecorativeObjectSpawned(DecorativeObjectSpawned event) { checkObjectPoints(event.getDecorativeObject()); }
-	@Subscribe
-	public void onDecorativeObjectDespawned(DecorativeObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getDecorativeObject()); }
-	@Subscribe
-	public void onGroundObjectSpawned(GroundObjectSpawned event) { checkObjectPoints(event.getGroundObject()); }
-	@Subscribe
-	public void onGroundObjectDespawned(GroundObjectDespawned event) { objects.removeIf(o -> o.getTileObject() == event.getGroundObject()); }
 
 	private void savePoints(final int regionId, final Set<ObjectPoint> points)
 	{
@@ -457,7 +396,6 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		if (tile.getDecorativeObject() != null && tile.getDecorativeObject().getId() == id) return tile.getDecorativeObject();
 		if (tile.getGroundObject() != null && tile.getGroundObject().getId() == id) return tile.getGroundObject();
 
-		// Fallback for transformed objects
 		for (GameObject obj : tile.getGameObjects())
 		{
 			if (obj != null && getObjectComposition(obj.getId()) != null && getObjectComposition(obj.getId()).getId() == id) return obj;
@@ -473,6 +411,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		return objectComposition.getImpostorIds() == null ? objectComposition : objectComposition.getImpostor();
 	}
 
+	// Dynamic Config Getters
 	private boolean getBucketEnabled(int bucketId)
 	{
 		switch (bucketId)
@@ -538,6 +477,23 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			case 8: return config.bucket8DeactivationCount();
 			case 9: return config.bucket9DeactivationCount();
 			default: return Integer.MAX_VALUE;
+		}
+	}
+
+	private boolean getBucketDisableWhileBusy(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1DisableWhileBusy();
+			case 2: return config.bucket2DisableWhileBusy();
+			case 3: return config.bucket3DisableWhileBusy();
+			case 4: return config.bucket4DisableWhileBusy();
+			case 5: return config.bucket5DisableWhileBusy();
+			case 6: return config.bucket6DisableWhileBusy();
+			case 7: return config.bucket7DisableWhileBusy();
+			case 8: return config.bucket8DisableWhileBusy();
+			case 9: return config.bucket9DisableWhileBusy();
+			default: return false;
 		}
 	}
 }

@@ -25,6 +25,8 @@
 package net.runelite.client.plugins.nom.nomobjectindicators;
 
 import net.runelite.api.*;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.InstantTimer;
 import net.runelite.client.plugins.SquareOverlay;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -42,19 +44,34 @@ class NomObjectIndicatorsOverlay extends Overlay
 
 
 	@Inject
-	private NomObjectIndicatorsOverlay(Client client, NomObjectIndicatorsConfig config, NomObjectIndicatorsPlugin plugin)
+	private NomObjectIndicatorsOverlay(Client client, NomObjectIndicatorsConfig config, NomObjectIndicatorsPlugin plugin, InstantTimer instantTimer)
 	{
 		this.client = client;
 		this.config = config;
 		this.plugin = plugin;
-		setPosition(OverlayPosition.DYNAMIC);
+
+        setPosition(OverlayPosition.DYNAMIC);
 		setPriority(PRIORITY_LOW);
 		setLayer(OverlayLayer.ABOVE_SCENE);
 	}
 
+	private WorldPoint lastPoint = null;
+
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
+
+//		if (config.bucket1DisableWhileBusy() ) {
+//
+//			WorldPoint currentPoint = client.getLocalPlayer().getWorldLocation();
+//			if (!currentPoint.equals(lastPoint) ||
+//					client.getLocalPlayer().getAnimation() != -1 || client.getLocalDestinationLocation() != null) {
+//				lastPoint = currentPoint;
+//				return null;
+//			}
+//		}
+
+
 		// The plugin has already determined which objects should be visible based on
 		// the active buckets and inventory counts. This overlay just renders them.
 		List<ColorTileObject> objectsToRender = plugin.getObjects();
