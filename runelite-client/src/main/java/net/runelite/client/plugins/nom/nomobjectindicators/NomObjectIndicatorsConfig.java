@@ -38,7 +38,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket1Section = "bucket1Section";
 	@ConfigItem(keyName = "bucket1Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket1Section)
 	default boolean bucket1Enabled() { return true; }
-	@Alpha
 	@ConfigItem(keyName = "bucket1Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket1Section)
 	default Color bucket1Color() { return Color.YELLOW; }
 	@ConfigItem(keyName = "bucket1Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket1Section)
@@ -53,7 +52,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket2Section = "bucket2Section";
 	@ConfigItem(keyName = "bucket2Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket2Section)
 	default boolean bucket2Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket2Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket2Section)
 	default Color bucket2Color() { return Color.GREEN; }
 	@ConfigItem(keyName = "bucket2Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket2Section)
@@ -68,7 +66,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket3Section = "bucket3Section";
 	@ConfigItem(keyName = "bucket3Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket3Section)
 	default boolean bucket3Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket3Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket3Section)
 	default Color bucket3Color() { return Color.RED; }
 	@ConfigItem(keyName = "bucket3Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket3Section)
@@ -83,7 +80,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket4Section = "bucket4Section";
 	@ConfigItem(keyName = "bucket4Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket4Section)
 	default boolean bucket4Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket4Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket4Section)
 	default Color bucket4Color() { return Color.BLUE; }
 	@ConfigItem(keyName = "bucket4Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket4Section)
@@ -98,7 +94,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket5Section = "bucket5Section";
 	@ConfigItem(keyName = "bucket5Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket5Section)
 	default boolean bucket5Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket5Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket5Section)
 	default Color bucket5Color() { return Color.MAGENTA; }
 	@ConfigItem(keyName = "bucket5Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket5Section)
@@ -113,7 +108,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket6Section = "bucket6Section";
 	@ConfigItem(keyName = "bucket6Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket6Section)
 	default boolean bucket6Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket6Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket6Section)
 	default Color bucket6Color() { return Color.ORANGE; }
 	@ConfigItem(keyName = "bucket6Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket6Section)
@@ -128,7 +122,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket7Section = "bucket7Section";
 	@ConfigItem(keyName = "bucket7Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket7Section)
 	default boolean bucket7Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket7Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket7Section)
 	default Color bucket7Color() { return Color.CYAN; }
 	@ConfigItem(keyName = "bucket7Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket7Section)
@@ -143,7 +136,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket8Section = "bucket8Section";
 	@ConfigItem(keyName = "bucket8Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket8Section)
 	default boolean bucket8Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket8Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket8Section)
 	default Color bucket8Color() { return Color.PINK; }
 	@ConfigItem(keyName = "bucket8Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket8Section)
@@ -158,7 +150,6 @@ public interface NomObjectIndicatorsConfig extends Config
 	String bucket9Section = "bucket9Section";
 	@ConfigItem(keyName = "bucket9Enabled", name = "Enable Rendering", description = "Enable this bucket's markers to be rendered.", position = 0, section = bucket9Section)
 	default boolean bucket9Enabled() { return false; }
-	@Alpha
 	@ConfigItem(keyName = "bucket9Color", name = "Color", description = "Color for this bucket", position = 1, section = bucket9Section)
 	default Color bucket9Color() { return Color.WHITE; }
 	@ConfigItem(keyName = "bucket9Activation", name = "Min Inventory Count (Inclusive)", description = "Markers will show if inventory count is at or above this value.", position = 2, section = bucket9Section)

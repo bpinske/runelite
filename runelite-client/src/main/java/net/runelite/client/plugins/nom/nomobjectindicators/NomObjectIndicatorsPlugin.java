@@ -17,13 +17,17 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.components.colorpicker.ColorPickerManager;
+import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.swing.*;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -63,6 +67,9 @@ public class NomObjectIndicatorsPlugin extends Plugin
 
 	@Inject
 	private ClientThread clientThread;
+
+	@Inject
+	private ColorPickerManager colorPickerManager; // Re-added for color picker functionality
 
 	@Provides
 	NomObjectIndicatorsConfig provideConfig(ConfigManager configManager)
@@ -170,6 +177,16 @@ public class NomObjectIndicatorsPlugin extends Plugin
 					.setIdentifier(event.getIdentifier())
 					.setType(MenuAction.RUNELITE)
 					.onClick(this::unmarkObject);
+
+			client.createMenuEntry(-1)
+					.setOption("Set color")
+					.setTarget(event.getTarget())
+					.setParam0(event.getActionParam0())
+					.setParam1(event.getActionParam1())
+					.setIdentifier(event.getIdentifier())
+					.setType(MenuAction.RUNELITE)
+					.onClick(this::setColor);
+
 		}
 
 		for (int i = 1; i <= NUM_BUCKETS; i++)
@@ -282,6 +299,61 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		}
 	}
 
+	private void setColor(MenuEntry entry)
+	{
+		final TileObject object = findTileObject(client.getPlane(), entry.getParam0(), entry.getParam1(), entry.getIdentifier());
+		if (object == null)
+		{
+			return;
+		}
+
+		ObjectPoint point = findMarkedObjectPoint(object);
+		if (point == null)
+		{
+			return;
+		}
+
+		Color color = point.getBorderColor();
+		if (color == null)
+		{
+			// Fallback to the bucket's default color if no specific color is set
+			color = getBucketColor(point.getBucket());
+		}
+
+		final Color finalColor = color;
+		SwingUtilities.invokeLater(() ->
+		{
+			RuneliteColorPicker colorPicker = colorPickerManager.create(SwingUtilities.windowForComponent(client.getCanvas()),
+					finalColor, "Set Object Marker Color", false); // false = no alpha
+			colorPicker.setOnClose(c -> clientThread.invokeLater(() ->
+			{
+				updateObjectPoint(object, p -> p.setBorderColor(c));
+			}));
+			colorPicker.setVisible(true);
+		});
+	}
+
+	private void updateObjectPoint(TileObject object, Consumer<ObjectPoint> consumer)
+	{
+		ObjectPoint point = findMarkedObjectPoint(object);
+		if (point == null)
+		{
+			return;
+		}
+
+		consumer.accept(point);
+
+		// Save the change to the config
+		final WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, object.getLocalLocation());
+		final int regionId = worldPoint.getRegionID();
+		Set<ObjectPoint> regionPoints = points.get(regionId);
+		if (regionPoints != null)
+		{
+			savePoints(regionId, regionPoints);
+		}
+	}
+
+
 	private void checkObjectPoints(TileObject object)
 	{
 		if (object == null)
@@ -295,7 +367,14 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			ObjectComposition objectComposition = getObjectComposition(object.getId());
 			if (objectComposition != null)
 			{
-				objects.add(new ColorTileObject(object, objectComposition, point.getName(), point.getBorderColor(), point.getFillColor(), (byte) 0));
+				Color color = point.getBorderColor();
+				if (color == null)
+				{
+					// Fallback if no color is stored (shouldn't happen with new marking logic)
+					color = getBucketColor(point.getBucket());
+				}
+				objects.add(new ColorTileObject(object, objectComposition, point.getName(), color, null, (byte) 0));
+
 			}
 		}
 	}

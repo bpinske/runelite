@@ -96,6 +96,7 @@ public class NomNpcSceneOverlay extends Overlay
 
 		for (NPC npc : plugin.getHighlightedNpcs())
 		{
+			Color color = config.getHighlightColor();
 			renderNpcOverlay(graphics, npc, config.getHighlightColor());
 		}
 		if (config.interacting()) {
@@ -111,6 +112,7 @@ public class NomNpcSceneOverlay extends Overlay
 					SquareOverlay.drawRandomBounds(graphics,lastActor.getConvexHull(),config.solidSquare(),config.getHighlightColor());
 				else
 				SquareOverlay.drawCenterSquare(graphics, lastActor, config.solidSquare(), config.getHighlightColor());
+
 			}
 		}
 		return null;
