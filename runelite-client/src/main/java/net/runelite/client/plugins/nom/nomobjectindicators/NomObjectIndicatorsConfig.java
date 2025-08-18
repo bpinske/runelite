@@ -44,8 +44,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket1ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket1Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket1Section)
 	default int bucket1DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket1DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket1Section)
-	default boolean bucket1DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket1DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket1Section)
+	default boolean bucket1DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket1DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket1Section)
+	default boolean bucket1DisableWhileMoving() { return false; }
 
 	// --- BUCKET 2 ---
 	@ConfigSection(name = "Bucket 2", description = "Settings for object bucket 2", position = 20, closedByDefault = true)
@@ -58,8 +60,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket2ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket2Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket2Section)
 	default int bucket2DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket2DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket2Section)
-	default boolean bucket2DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket2DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket2Section)
+	default boolean bucket2DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket2DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket2Section)
+	default boolean bucket2DisableWhileMoving() { return false; }
 
 	// --- BUCKET 3 ---
 	@ConfigSection(name = "Bucket 3", description = "Settings for object bucket 3", position = 30, closedByDefault = true)
@@ -72,8 +76,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket3ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket3Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket3Section)
 	default int bucket3DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket3DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket3Section)
-	default boolean bucket3DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket3DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket3Section)
+	default boolean bucket3DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket3DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket3Section)
+	default boolean bucket3DisableWhileMoving() { return false; }
 
 	// --- BUCKET 4 ---
 	@ConfigSection(name = "Bucket 4", description = "Settings for object bucket 4", position = 40, closedByDefault = true)
@@ -86,8 +92,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket4ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket4Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket4Section)
 	default int bucket4DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket4DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket4Section)
-	default boolean bucket4DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket4DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket4Section)
+	default boolean bucket4DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket4DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket4Section)
+	default boolean bucket4DisableWhileMoving() { return false; }
 
 	// --- BUCKET 5 ---
 	@ConfigSection(name = "Bucket 5", description = "Settings for object bucket 5", position = 50, closedByDefault = true)
@@ -100,8 +108,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket5ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket5Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket5Section)
 	default int bucket5DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket5DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket5Section)
-	default boolean bucket5DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket5DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket5Section)
+	default boolean bucket5DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket5DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket5Section)
+	default boolean bucket5DisableWhileMoving() { return false; }
 
 	// --- BUCKET 6 ---
 	@ConfigSection(name = "Bucket 6", description = "Settings for object bucket 6", position = 60, closedByDefault = true)
@@ -114,8 +124,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket6ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket6Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket6Section)
 	default int bucket6DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket6DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket6Section)
-	default boolean bucket6DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket6DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket6Section)
+	default boolean bucket6DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket6DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket6Section)
+	default boolean bucket6DisableWhileMoving() { return false; }
 
 	// --- BUCKET 7 ---
 	@ConfigSection(name = "Bucket 7", description = "Settings for object bucket 7", position = 70, closedByDefault = true)
@@ -128,8 +140,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket7ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket7Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket7Section)
 	default int bucket7DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket7DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket7Section)
-	default boolean bucket7DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket7DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket7Section)
+	default boolean bucket7DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket7DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket7Section)
+	default boolean bucket7DisableWhileMoving() { return false; }
 
 	// --- BUCKET 8 ---
 	@ConfigSection(name = "Bucket 8", description = "Settings for object bucket 8", position = 80, closedByDefault = true)
@@ -142,8 +156,10 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket8ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket8Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket8Section)
 	default int bucket8DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket8DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket8Section)
-	default boolean bucket8DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket8DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket8Section)
+	default boolean bucket8DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket8DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket8Section)
+	default boolean bucket8DisableWhileMoving() { return false; }
 
 	// --- BUCKET 9 ---
 	@ConfigSection(name = "Bucket 9", description = "Settings for object bucket 9", position = 90, closedByDefault = true)
@@ -156,6 +172,8 @@ public interface NomObjectIndicatorsConfig extends Config
 	default int bucket9ActivationCount() { return 1; }
 	@ConfigItem(keyName = "bucket9Deactivation", name = "Max Inventory Count (Exclusive)", description = "Markers will show if inventory count is below this value.", position = 3, section = bucket9Section)
 	default int bucket9DeactivationCount() { return 28; }
-	@ConfigItem(keyName = "bucket9DisableOnInteract", name = "Disable while busy", description = "Hide markers while interacting or animating.", position = 4, section = bucket9Section)
-	default boolean bucket9DisableWhileBusy() { return false; }
+	@ConfigItem(keyName = "bucket9DisableOnInteract", name = "Disable while Interacting", description = "Hide markers while interacting with NPCs or players.", position = 4, section = bucket9Section)
+	default boolean bucket9DisableWhileInteracting() { return false; }
+	@ConfigItem(keyName = "bucket9DisableOnMove", name = "Disable while Moving", description = "Hide markers while your character is moving.", position = 5, section = bucket9Section)
+	default boolean bucket9DisableWhileMoving() { return false; }
 }

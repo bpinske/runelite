@@ -108,46 +108,41 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		checkBucketActivationAndUpdateRenderList();
 	}
 
-	/**
-	 * Checks if the player is busy (interacting or animating).
-	 */
-	private boolean isPlayerBusy()
+	private boolean isPlayerInteracting()
 	{
 		Player localPlayer = client.getLocalPlayer();
-		if (localPlayer == null)
-		{
-			return false;
-		}
 		return localPlayer.getAnimation() != -1 || localPlayer.getInteracting() != null;
+
 	}
 
-	/**
-	 * This is the main loop that runs every frame. It determines which buckets should be active
-	 * and then immediately rebuilds the list of objects to be rendered.
-	 */
+	private boolean isPlayerMoving()
+	{
+		// A player is moving if they have a walk destination. This is a stable check.
+		return client.getLocalDestinationLocation() != null;
+	}
+
 	private void checkBucketActivationAndUpdateRenderList()
 	{
-		final boolean isBusy = isPlayerBusy();
+		final boolean isInteracting = isPlayerInteracting();
+		final boolean isMoving = isPlayerMoving();
 		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		final int inventoryCount = (inventory == null) ? 0 : (int) Arrays.stream(inventory.getItems())
 				.filter(item -> item.getId() != -1 && item.getQuantity() > 0)
 				.count();
 
-		// Step 1: Update the active state for all buckets based on the new logic.
 		for (int i = 0; i < NUM_BUCKETS; i++)
 		{
 			final int bucketId = i + 1;
 			int minCount = getBucketActivationCount(bucketId);
 			int maxCount = getBucketDeactivationCount(bucketId);
 
-			// The core "range" logic: active if count is between min (inclusive) and max (exclusive).
 			boolean inventoryConditionMet = (inventoryCount >= minCount && inventoryCount < maxCount);
+			boolean interactingBlocks = isInteracting && getBucketDisableWhileInteracting(bucketId);
+			boolean movingBlocks = isMoving && getBucketDisableWhileMoving(bucketId);
 
-			boolean busyConditionBlocks = isBusy && getBucketDisableWhileBusy(bucketId);
-			bucketActive[i] = getBucketEnabled(bucketId) && inventoryConditionMet && !busyConditionBlocks;
+			bucketActive[i] = getBucketEnabled(bucketId) && inventoryConditionMet && !interactingBlocks && !movingBlocks;
 		}
 
-		// Step 2: Rebuild the render list from scratch based on the now-current bucket states.
 		rebuildRenderableObjects();
 	}
 
@@ -559,19 +554,36 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		}
 	}
 
-	private boolean getBucketDisableWhileBusy(int bucketId)
+	private boolean getBucketDisableWhileInteracting(int bucketId)
 	{
 		switch (bucketId)
 		{
-			case 1: return config.bucket1DisableWhileBusy();
-			case 2: return config.bucket2DisableWhileBusy();
-			case 3: return config.bucket3DisableWhileBusy();
-			case 4: return config.bucket4DisableWhileBusy();
-			case 5: return config.bucket5DisableWhileBusy();
-			case 6: return config.bucket6DisableWhileBusy();
-			case 7: return config.bucket7DisableWhileBusy();
-			case 8: return config.bucket8DisableWhileBusy();
-			case 9: return config.bucket9DisableWhileBusy();
+			case 1: return config.bucket1DisableWhileInteracting();
+			case 2: return config.bucket2DisableWhileInteracting();
+			case 3: return config.bucket3DisableWhileInteracting();
+			case 4: return config.bucket4DisableWhileInteracting();
+			case 5: return config.bucket5DisableWhileInteracting();
+			case 6: return config.bucket6DisableWhileInteracting();
+			case 7: return config.bucket7DisableWhileInteracting();
+			case 8: return config.bucket8DisableWhileInteracting();
+			case 9: return config.bucket9DisableWhileInteracting();
+			default: return false;
+		}
+	}
+
+	private boolean getBucketDisableWhileMoving(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1DisableWhileMoving();
+			case 2: return config.bucket2DisableWhileMoving();
+			case 3: return config.bucket3DisableWhileMoving();
+			case 4: return config.bucket4DisableWhileMoving();
+			case 5: return config.bucket5DisableWhileMoving();
+			case 6: return config.bucket6DisableWhileMoving();
+			case 7: return config.bucket7DisableWhileMoving();
+			case 8: return config.bucket8DisableWhileMoving();
+			case 9: return config.bucket9DisableWhileMoving();
 			default: return false;
 		}
 	}
