@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.nom.widgetfiller;
 
 import net.runelite.api.widgets.WidgetInfo;
-import static net.runelite.client.plugins.nom.questacclist.AccountQuestListPlugin.QUESTLIST_GROUP_ID;
 
 public enum UsefulWidgets {
 
@@ -54,13 +53,6 @@ public enum UsefulWidgets {
     RUN_ORB_TEXT(WidgetInfo.MINIMAP_RUN_ORB_TEXT.getGroupId(),WidgetInfo.MINIMAP_RUN_ORB_TEXT.getChildId()),
     HEALTH_ORB(WidgetInfo.MINIMAP_HEALTH_ORB.getGroupId(),WidgetInfo.MINIMAP_HEALTH_ORB.getChildId()),
     SPEC_ORB(WidgetInfo.MINIMAP_SPEC_ORB.getGroupId(),WidgetInfo.MINIMAP_SPEC_ORB.getChildId()),
-
-	QUESTLIST_BOX(QUESTLIST_GROUP_ID, QuestList.BOX),
-	QUESTLIST_CONTAINER(QUESTLIST_GROUP_ID, QuestList.CONTAINER),
-	QUESTLIST_SCROLLBAR(QUESTLIST_GROUP_ID, QuestList.SCROLLBAR),
-	QUESTLIST_FREE_CONTAINER(QUESTLIST_GROUP_ID, QuestList.FREE_CONTAINER),
-	QUESTLIST_MEMBERS_CONTAINER(QUESTLIST_GROUP_ID, QuestList.MEMBERS_CONTAINER),
-	QUESTLIST_MINIQUEST_CONTAINER(QUESTLIST_GROUP_ID, QuestList.MINIQUEST_CONTAINER),
 
 
 	;

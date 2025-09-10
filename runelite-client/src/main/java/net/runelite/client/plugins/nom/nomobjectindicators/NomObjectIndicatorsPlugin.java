@@ -102,6 +102,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		}
 	}
 
+
 	@Subscribe
 	public void onClientTick(ClientTick clientTick)
 	{

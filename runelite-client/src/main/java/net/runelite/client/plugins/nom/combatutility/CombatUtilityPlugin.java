@@ -133,15 +133,6 @@ public class CombatUtilityPlugin extends Plugin
         }
     }
 
-    // TODO run the agility scripts through gemini to see if there are improvement that can be made
-    // TODO Make ZMI rc plugin
-    // Maybe MLM?
-    // Understand the pathfinder/how the agility minimap works
-    // Recreate the Tithe farm plugin
-    // Recreate the mastering mixology plugin
-    // Make plugin for blast furnace crafting
-    // Figure out dialogue boxes?
-
     private void highlightPotions(Set<Integer> potionIds, Color color, int size)
     {
         ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);

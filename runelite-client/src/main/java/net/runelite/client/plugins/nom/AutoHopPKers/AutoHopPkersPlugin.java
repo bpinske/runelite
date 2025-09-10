@@ -97,9 +97,8 @@ public class AutoHopPkersPlugin extends Plugin
 		upper = -1;
 	}
 
-
 	@Subscribe
-	public void onGameTick(GameTick event)
+	 public void onGameTick(GameTick event)
 	{
 		if (client.getGameState() != GameState.LOGGED_IN)
 		{

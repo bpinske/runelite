@@ -1,0 +1,18 @@
+determining when items are selected
+//    client.isWidgetSelected() would be what change in this case
+//
+//    though, this can also be true if you have a spell selected
+//
+
+    //Not sure how to get it from dabbling as it's not in Menu as it just appears on the top text (maybe a widget?), but you could check the inventory to see what item has BorderType as 2, as that means it's selected
+
+    // Not sure how to get it from dabbling as it's not in Menu as it just appears on the top text (maybe a widget?), but you could check the inventory to see what item has BorderType as 2, as that means it's selected
+
+    // TODO run the agility scripts through gemini to see if there are improvement that can be made
+    // TODO Make ZMI rc plugin
+    // Maybe MLM?
+    // Understand the pathfinder/how the agility minimap works
+    // Recreate the Tithe farm plugin
+    // Recreate the mastering mixology plugin
+    // Make plugin for blast furnace crafting
+    // Figure out dialogue boxes?
