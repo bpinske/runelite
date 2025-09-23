@@ -25,31 +25,27 @@
  */
 package net.runelite.client.plugins.nom.AutoHopPKers;
 
+import com.google.inject.Provides;
 import lombok.Getter;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.Player;
+import net.runelite.api.*;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.PlayerSpawned;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
-import net.runelite.client.Notifier;
-import net.runelite.client.callback.ClientThread;
-import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.ClientUI;
-import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @PluginDescriptor(
 		name = "AutoHopPKers",
-		description = "PKers are cancer",
+		description = "Automatically hops and plays a sound when a PKer appears.",
 		tags = {"pk", "pkers", "wilderness", "attack", "range", "nomscripts"},
 		enabledByDefault = false
 )
@@ -57,80 +53,53 @@ public class AutoHopPkersPlugin extends Plugin
 {
 	private final Pattern WILDERNESS_LEVEL_PATTERN = Pattern.compile(".*?(\\d+)-(\\d+).*");
 
-	private Instant lastPing;
+	private Instant lastSoundPlayed;
 
-	@Getter
-	private String lastName = "";
 	@Getter
 	private int lower = -1;
 	@Getter
 	private int upper = -1;
 
-	private final int PVPWORLD_TEXT = 52;
+	private static final int PVPWORLD_TEXT_WIDGET_ID = 52;
 
 	@Inject
 	private Client client;
 
 	@Inject
-	private ClientUI clientUI;
-
-	@Inject
-	private ClientThread clientThread;
-
-@	Inject
 	private AutoHopPKersUtil autoHopPKersUtil;
 
 	@Inject
-	private OverlayManager overlayManager;
+	private AutoHopPkersConfig config;
 
-	@Inject
-	private Notifier notifier;
-
-	@Inject
-	private ChatMessageManager chatMessageManager;
+	@Provides
+	AutoHopPkersConfig provideConfig(ConfigManager configManager)
+	{
+		return configManager.getConfig(AutoHopPkersConfig.class);
+	}
 
 	@Override
 	protected void startUp() throws Exception
 	{
-		lastPing = Instant.now();
+		lastSoundPlayed = Instant.now().minus(Duration.ofSeconds(config.frequency())); // Allow sound on first encounter
 		lower = -1;
 		upper = -1;
 	}
 
 	@Subscribe
-	 public void onGameTick(GameTick event)
+	public void onGameTick(GameTick event)
 	{
 		if (client.getGameState() != GameState.LOGGED_IN)
 		{
 			return;
 		}
 
-		for (Player player : client.getPlayers()) {
-			checkPlayer(player);
-		}
+		updateWildernessLevel();
 
-		final Widget wildernessLevelWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
-		final Widget pvpWorldWidget = client.getWidget(90,PVPWORLD_TEXT);
-
-		String wildernessLevelText = "";
-		if (pvpWorldWidget != null && !pvpWorldWidget.isHidden()) {
-			wildernessLevelText = pvpWorldWidget.getText();
+		if (config.checkEveryTick()) {
+			for (Player player : client.getPlayers()) {
+				checkPlayer(player);
+			}
 		}
-		if (wildernessLevelText.isEmpty() && (wildernessLevelWidget != null && !wildernessLevelWidget.isHidden())) {
-			wildernessLevelText = wildernessLevelWidget.getText();
-		}
-		if (wildernessLevelText.isEmpty()) {
-			lower = 0;
-			upper = 0;
-			return;
-		}
-
-		final Matcher m = WILDERNESS_LEVEL_PATTERN.matcher(wildernessLevelText);
-		if (!m.matches()) {
-			return;
-		}
-		lower = Integer.parseInt(m.group(1));
-		upper = Integer.parseInt(m.group(2));
 	}
 
 
@@ -140,24 +109,92 @@ public class AutoHopPkersPlugin extends Plugin
 		checkPlayer(event.getPlayer());
 	}
 
-	private boolean checkPlayer(Player p) {
-		if (!inWilderness()) return false;
-		if (p.equals(client.getLocalPlayer())) return false;
-		if (p.getCombatLevel() >= lower && p.getCombatLevel() <= upper)
-		{
-			autoHopPKersUtil.Hop();
-			System.out.println("criteria triggered");
-			return true;
+	private void updateWildernessLevel()
+	{
+		final Widget wildernessLevelWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
+		final Widget pvpWorldWidget = client.getWidget(90, PVPWORLD_TEXT_WIDGET_ID);
+
+		String wildernessLevelText = "";
+		if (pvpWorldWidget != null && !pvpWorldWidget.isHidden()) {
+			wildernessLevelText = pvpWorldWidget.getText();
 		}
-		return false;
+		if (wildernessLevelText.isEmpty() && (wildernessLevelWidget != null && !wildernessLevelWidget.isHidden())) {
+			wildernessLevelText = wildernessLevelWidget.getText();
+		}
+
+		if (wildernessLevelText.isEmpty()) {
+			lower = 0;
+			upper = 0;
+			return;
+		}
+
+		final Matcher m = WILDERNESS_LEVEL_PATTERN.matcher(wildernessLevelText);
+		if (m.matches())
+		{
+			lower = Integer.parseInt(m.group(1));
+			upper = Integer.parseInt(m.group(2));
+		}
+	}
+
+	private void checkPlayer(Player p) {
+		if (p == null || p.equals(client.getLocalPlayer()) || !inWilderness())
+		{
+			return;
+		}
+
+		boolean isAttackable = p.getCombatLevel() >= lower && p.getCombatLevel() <= upper;
+		if (!isAttackable)
+		{
+			return;
+		}
+
+		boolean isSkulled = p.getSkullIcon() != SkullIcon.NONE;
+
+		// --- Sound Alert Logic ---
+		if (config.pkerPing())
+		{
+			boolean shouldPlaySound;
+			if (config.soundOnlyOnSkulled()) {
+				shouldPlaySound = isSkulled; // Only play sound if they are skulled
+			} else {
+				shouldPlaySound = true; // Play sound for anyone in combat range
+			}
+
+			if (shouldPlaySound && Instant.now().isAfter(lastSoundPlayed.plus(Duration.ofSeconds(config.frequency()))))
+			{
+				client.playSoundEffect(SoundEffectID.TOWN_CRIER_BELL_DING, SoundEffectVolume.HIGH);
+				lastSoundPlayed = Instant.now();
+			}
+		}
+
+		// --- Auto Hop Logic ---
+		if (config.enableAutoHop())
+		{
+			boolean shouldHop;
+			if (config.hopOnlyOnSkulled()) {
+				shouldHop = isSkulled; // Only hop if they are skulled
+			} else {
+				shouldHop = true; // Hop for anyone in combat range
+			}
+
+			if (shouldHop)
+			{
+				autoHopPKersUtil.Hop();
+				System.out.println("Hop triggered by player: " + p.getName());
+			}
+		}
 	}
 
 	public boolean inWilderness() {
-		final Widget wildy = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
-		final Widget pvpWorldWidget = client.getWidget(90,PVPWORLD_TEXT);
-		final Widget safeZone = client.getWidget(WidgetInfo.PVP_WORLD_SAFE_ZONE);
-		if (safeZone != null && !safeZone.isHidden()) return false;
-		return (wildy != null && !wildy.isHidden()) ||
-				(pvpWorldWidget != null && !pvpWorldWidget.isHidden()) ;
+		final Widget wildyWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
+		final Widget pvpWorldWidget = client.getWidget(90, PVPWORLD_TEXT_WIDGET_ID);
+		final Widget safeZoneWidget = client.getWidget(WidgetInfo.PVP_WORLD_SAFE_ZONE);
+
+		if (safeZoneWidget != null && !safeZoneWidget.isHidden())
+		{
+			return false;
+		}
+		return (wildyWidget != null && !wildyWidget.isHidden()) ||
+				(pvpWorldWidget != null && !pvpWorldWidget.isHidden());
 	}
 }
