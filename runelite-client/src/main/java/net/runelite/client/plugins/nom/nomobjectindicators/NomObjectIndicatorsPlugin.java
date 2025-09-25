@@ -25,6 +25,8 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.swing.*;
 import java.awt.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.function.Consumer;
@@ -46,6 +48,10 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	private final List<ColorTileObject> objects = new ArrayList<>();
 	private final Map<Integer, Set<ObjectPoint>> points = new HashMap<>();
 	private final boolean[] bucketActive = new boolean[NUM_BUCKETS];
+
+	// Track last known interaction state for cooldowns
+	private boolean wasInteracting = false;
+	private final Instant[] lastInteractionStop = new Instant[NUM_BUCKETS]; // Cooldown start time per bucket
 
 	@Inject
 	private Client client;
@@ -69,7 +75,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
-	private ColorPickerManager colorPickerManager; // Re-added for color picker functionality
+	private ColorPickerManager colorPickerManager;
 
 	@Provides
 	NomObjectIndicatorsConfig provideConfig(ConfigManager configManager)
@@ -81,6 +87,11 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	protected void startUp()
 	{
 		overlayManager.add(overlay);
+		// Initialize interaction cooldowns to a distant past time
+		for (int i = 0; i < NUM_BUCKETS; i++)
+		{
+			lastInteractionStop[i] = Instant.MIN;
+		}
 		clientThread.invokeLater(this::reloadPointsFromConfig);
 	}
 
@@ -91,6 +102,8 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		points.clear();
 		objects.clear();
 		Arrays.fill(bucketActive, false);
+		Arrays.fill(lastInteractionStop, Instant.MIN);
+		wasInteracting = false;
 	}
 
 	@Subscribe
@@ -112,8 +125,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	private boolean isPlayerInteracting()
 	{
 		Player localPlayer = client.getLocalPlayer();
-		return localPlayer.getAnimation() != -1 || localPlayer.getInteracting() != null;
-
+		return localPlayer != null && (localPlayer.getAnimation() != -1 || localPlayer.getInteracting() != null);
 	}
 
 	private boolean isPlayerMoving()
@@ -124,27 +136,77 @@ public class NomObjectIndicatorsPlugin extends Plugin
 
 	private void checkBucketActivationAndUpdateRenderList()
 	{
-		final boolean isInteracting = isPlayerInteracting();
+		final boolean isCurrentlyInteracting = isPlayerInteracting();
 		final boolean isMoving = isPlayerMoving();
 		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		final int inventoryCount = (inventory == null) ? 0 : (int) Arrays.stream(inventory.getItems())
 				.filter(item -> item.getId() != -1 && item.getQuantity() > 0)
 				.count();
 
+		boolean renderListNeedsRebuild = false;
+
 		for (int i = 0; i < NUM_BUCKETS; i++)
 		{
 			final int bucketId = i + 1;
 			int minCount = getBucketActivationCount(bucketId);
 			int maxCount = getBucketDeactivationCount(bucketId);
+			int cooldownSeconds = getBucketInteractionCooldown(bucketId);
 
+			boolean bucketEnabled = getBucketEnabled(bucketId);
 			boolean inventoryConditionMet = (inventoryCount >= minCount && inventoryCount < maxCount);
-			boolean interactingBlocks = isInteracting && getBucketDisableWhileInteracting(bucketId);
+
+			// Check for interacting block with cooldown
+			boolean interactingBlocks = false;
+			if (getBucketDisableWhileInteracting(bucketId))
+			{
+				if (isCurrentlyInteracting)
+				{
+					// Player is currently interacting, so it blocks
+					interactingBlocks = true;
+					// Do not update lastInteractionStop yet, it updates when interaction *stops*
+				}
+				else
+				{
+					// Player is NOT interacting. Check if we're within the cooldown period.
+					// If the last stop was within cooldownSeconds, it still blocks.
+					if (Instant.now().isBefore(lastInteractionStop[i].plus(Duration.ofSeconds(cooldownSeconds))))
+					{
+						interactingBlocks = true;
+					}
+				}
+			}
+
 			boolean movingBlocks = isMoving && getBucketDisableWhileMoving(bucketId);
 
-			bucketActive[i] = getBucketEnabled(bucketId) && inventoryConditionMet && !interactingBlocks && !movingBlocks;
+			boolean newBucketActiveState = bucketEnabled && inventoryConditionMet && !interactingBlocks && !movingBlocks;
+
+			if (newBucketActiveState != bucketActive[i])
+			{
+				bucketActive[i] = newBucketActiveState;
+				renderListNeedsRebuild = true;
+			}
 		}
 
-		rebuildRenderableObjects();
+		// Update lastInteractionStop for relevant buckets AFTER checking all buckets for the current tick
+		if (wasInteracting && !isCurrentlyInteracting)
+		{
+			// Player just stopped interacting, update cooldown for all relevant buckets
+			for (int i = 0; i < NUM_BUCKETS; i++)
+			{
+				if (getBucketDisableWhileInteracting(i + 1))
+				{
+					lastInteractionStop[i] = Instant.now();
+				}
+			}
+			renderListNeedsRebuild = true; // State change due to cooldowns, might need rebuild
+		}
+		wasInteracting = isCurrentlyInteracting;
+
+
+		if (renderListNeedsRebuild)
+		{
+			rebuildRenderableObjects();
+		}
 	}
 
 
@@ -231,6 +293,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		Set<ObjectPoint> objectPoints = points.computeIfAbsent(regionId, k -> new HashSet<>());
 		objectPoints.add(point);
 		savePoints(regionId, objectPoints);
+		rebuildRenderableObjects(); // Rebuild when markings change
 	}
 
 	private void unmarkObject(MenuEntry entry)
@@ -253,6 +316,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		if (objectComposition != null && objectPoints.removeIf(findObjectPredicate(objectComposition, object, worldPoint)))
 		{
 			savePoints(regionId, objectPoints);
+			rebuildRenderableObjects(); // Rebuild when markings change
 		}
 	}
 
@@ -324,6 +388,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			colorPicker.setOnClose(c -> clientThread.invokeLater(() ->
 			{
 				updateObjectPoint(object, p -> p.setBorderColor(c));
+				rebuildRenderableObjects(); // Rebuild after color change
 			}));
 			colorPicker.setVisible(true);
 		});
@@ -446,6 +511,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 				}
 			}
 		}
+		rebuildRenderableObjects(); // Rebuild after config reload
 	}
 
 	@Nullable
@@ -471,9 +537,14 @@ public class NomObjectIndicatorsPlugin extends Plugin
 		if (tile.getDecorativeObject() != null && tile.getDecorativeObject().getId() == id) return tile.getDecorativeObject();
 		if (tile.getGroundObject() != null && tile.getGroundObject().getId() == id) return tile.getGroundObject();
 
+		// Second loop to check object composition ID if direct ID match fails for GameObjects
+		// This handles cases where object.getID() might be the base object ID but the target identifier is the transformed ID.
 		for (GameObject obj : tile.getGameObjects())
 		{
-			if (obj != null && getObjectComposition(obj.getId()) != null && getObjectComposition(obj.getId()).getId() == id) return obj;
+			if (obj != null) {
+				ObjectComposition comp = getObjectComposition(obj.getId());
+				if (comp != null && comp.getId() == id) return obj;
+			}
 		}
 
 		return null;
@@ -483,7 +554,7 @@ public class NomObjectIndicatorsPlugin extends Plugin
 	private ObjectComposition getObjectComposition(int id)
 	{
 		ObjectComposition objectComposition = client.getObjectDefinition(id);
-		return objectComposition.getImpostorIds() == null ? objectComposition : objectComposition.getImpostor();
+		return objectComposition == null || objectComposition.getImpostorIds() == null ? objectComposition : objectComposition.getImpostor();
 	}
 
 	// Dynamic Config Getters
@@ -569,6 +640,23 @@ public class NomObjectIndicatorsPlugin extends Plugin
 			case 8: return config.bucket8DisableWhileInteracting();
 			case 9: return config.bucket9DisableWhileInteracting();
 			default: return false;
+		}
+	}
+
+	private int getBucketInteractionCooldown(int bucketId)
+	{
+		switch (bucketId)
+		{
+			case 1: return config.bucket1InteractionCooldown();
+			case 2: return config.bucket2InteractionCooldown();
+			case 3: return config.bucket3InteractionCooldown();
+			case 4: return config.bucket4InteractionCooldown();
+			case 5: return config.bucket5InteractionCooldown();
+			case 6: return config.bucket6InteractionCooldown();
+			case 7: return config.bucket7InteractionCooldown();
+			case 8: return config.bucket8InteractionCooldown();
+			case 9: return config.bucket9InteractionCooldown();
+			default: return 0;
 		}
 	}
 
